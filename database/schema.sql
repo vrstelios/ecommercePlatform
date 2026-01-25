@@ -1,22 +1,3 @@
-
-select * from users
-select * from exercises e
-select * from coach
-select * from workouts
-select * from workout_log
-
-delete from workouts  where id = 'a3876de1-bc54-461a-bf3e-f337e7f3b00c'
-
-
-drop table users
---user_id = 4660094a-722f-41fb-8678-c57937a226eb
---workout_id = 98159ad3-d91e-11f0-90c1-2cfda1bbb0fd
-select * from workout_log
-insert into workout_log (id, user_id, workout_id)
-values ('639731c3-496a-4f47-8562-86043293902f', '4660094a-722f-41fb-8678-c57937a226eb', '98159ad3-d91e-11f0-90c1-2cfda1bbb0fd')
-
-
-
 DROP TABLE IF EXISTS inventory;
 DROP TABLE IF EXISTS payments;
 DROP TABLE IF EXISTS order_items;

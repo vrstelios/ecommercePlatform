@@ -1,0 +1,5 @@
+
+1) run: Backend1
+2) run: Gateway
+
+after tha in Power-Shell run: Invoke-WebRequest http://localhost:8080

@@ -1,0 +1,10 @@
+port: 8080
+
+services:
+  - name: "user-service"
+    route_pattern: "/users"
+    url: "http://localhost:8081"
+
+  - name: "product-service"
+    route_pattern: "/product"
+    url: "http://localhost:8082"

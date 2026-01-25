@@ -1,10 +1,18 @@
 port: ":8080"
 
+middleware_config:
+  auth_apikey:
+    valid_keys:
+      - "abc-123"
+      - "dwe-659"
+
 services:
   - name: "user-service"
     route_pattern: "/users"
     url: "http://localhost:8081"
+    middleware: []
 
   - name: "product-service"
     route_pattern: "/product"
     url: "http://localhost:8082"
+    middleware: ["auth_apikey"]

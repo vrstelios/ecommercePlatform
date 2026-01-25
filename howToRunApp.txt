@@ -1,5 +1,8 @@
 
 1) run: Backend1
-2) run: Gateway
-
-after tha in Power-Shell run: Invoke-WebRequest http://localhost:8080
+2) run: Backend2
+3) run: Gateway
+	
+after all, in Power-Shell run: 
+Invoke-WebRequest http://localhost:8080/products   # for BE1
+Invoke-WebRequest http://localhost:8080/users          #for BE2

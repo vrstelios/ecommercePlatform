@@ -6,6 +6,7 @@ import (
 )
 
 func hello(w http.ResponseWriter, r *http.Request) {
+	log.Print("Hello product page")
 	w.Header().Add("backend-2", "true")
 	w.WriteHeader(http.StatusOK)
 

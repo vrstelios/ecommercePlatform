@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v3"
 	"log"
 	"net/http"
@@ -9,7 +12,36 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 )
+
+var counter = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "http_requests_counter",
+		Help: "to count all the http requests",
+	}, []string{"method", "status", "service"})
+
+var timer = prometheus.NewHistogramVec(
+	prometheus.HistogramOpts{
+		Name:    "http_request_timer",
+		Help:    "to calculate the time taken by the request",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"method", "service"})
+
+func init() {
+	prometheus.MustRegister(counter)
+	prometheus.MustRegister(timer)
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rec *statusRecorder) WriteHeader(code int) {
+	rec.statusCode = code
+	rec.ResponseWriter.WriteHeader(code)
+}
 
 type Config struct {
 	Port             string      `yaml:"port"`
@@ -62,6 +94,25 @@ func (g *Gateway) authAPIKeyMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func (g *Gateway) metricsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		startTime := time.Now()
+		recorder := &statusRecorder{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK,
+		}
+		serviceName := ""
+		service := g.findService(r)
+		if service != nil {
+			serviceName = service.Name
+		}
+		next.ServeHTTP(recorder, r)
+		duration := time.Since(startTime).Seconds()
+		counter.WithLabelValues(r.Method, fmt.Sprintf("%s", recorder.statusCode), serviceName).Inc()
+		timer.WithLabelValues(r.Method, serviceName).Observe(duration)
+	})
+}
+
 // NewGateway creates a Gateway from the provided Config.
 // It builds the apiKeys map, registers built-in middleware and prepares reverse proxies for services.
 func NewGateway(cfg *Config) *Gateway {
@@ -75,6 +126,7 @@ func NewGateway(cfg *Config) *Gateway {
 		gw.apiKeys[key] = true
 	}
 	gw.register("auth_apikey", gw.authAPIKeyMiddleware)
+	gw.register("metrics", gw.metricsMiddleware)
 
 	for i := range cfg.Services {
 		currSer := &cfg.Services[i]
@@ -129,7 +181,7 @@ func (g *Gateway) handleGateway(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var curr http.Handler = service.NewProxy()
-	for i := len(service.Middleware) - 1; i == 0; i-- {
+	for i := len(service.Middleware) - 1; i >= 0; i-- {
 		middlewareName := service.Middleware[i]
 		middleware, ok := g.wrappers[middlewareName]
 		if !ok {
@@ -160,6 +212,7 @@ func main() {
 	gw := NewGateway(cfg)
 	mux := http.NewServeMux()
 	mux.Handle("/", http.HandlerFunc(gw.handleGateway))
+	mux.Handle("/metrics", promhttp.Handler())
 	server := &http.Server{
 		Addr:    cfg.Port,
 		Handler: mux,

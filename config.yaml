@@ -12,10 +12,12 @@ services:
     urls:
       - "http://localhost:8081"
       - "http://localhost:8083"
-    middleware: ["auth_apikey"]
+    middleware:
+      - "metrics"
 
   - name: "product-service"
     route_pattern: "/product"
     urls:
       - "http://localhost:8082"
-    middleware: ["auth_apikey"]
+    middleware:
+     - "metrics"

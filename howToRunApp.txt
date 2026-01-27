@@ -8,3 +8,14 @@ iwr -v -Headers @{ "X-API-KEY" = "abc-123" } http://localhost:8080/products     
 iwr -v -Headers @{ "X-API-KEY" = "abc" } http://localhost:8080/users            # for BE1
 
 
+for ($i=0; $i -lt 100; $i++) {
+    $resp = Invoke-WebRequest -Uri "http://localhost:8080/products" -Headers @{ "X-API-KEY" = "abc-123" } -UseBasicParsing
+    $resp.StatusCode
+    Start-Sleep -Milliseconds 100
+}
+
+for ($i=0; $i -lt 100; $i++) {
+    $resp = Invoke-WebRequest -Uri "http://localhost:8080/users" -Headers @{ "X-API-KEY" = "abc-123" } -UseBasicParsing
+    $resp.StatusCode
+    Start-Sleep -Milliseconds 1
+}

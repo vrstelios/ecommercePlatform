@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 )
 
 type Config struct {
@@ -27,10 +28,11 @@ type ApiConfig struct {
 type Service struct {
 	Name       string   `yaml:"name"`
 	Route      string   `yaml:"route_pattern"`
-	Url        string   `yaml:"url"`
+	Urls       []string `yaml:"urls"`
 	Middleware []string `yaml:"middleware"`
 
-	proxy *httputil.ReverseProxy
+	proxies []*httputil.ReverseProxy
+	count   int64
 }
 
 type MiddlewareWrapper func(next http.Handler) http.Handler
@@ -46,6 +48,7 @@ func (g *Gateway) register(name string, wrapper MiddlewareWrapper) {
 	log.Printf("Register a middleware %s", name)
 }
 
+// authAPIKeyMiddleware returns a middleware that checks the X-API-KEY header.
 func (g *Gateway) authAPIKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		apiKey := r.Header.Get("X-API-KEY")
@@ -59,6 +62,8 @@ func (g *Gateway) authAPIKeyMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// NewGateway creates a Gateway from the provided Config.
+// It builds the apiKeys map, registers built-in middleware and prepares reverse proxies for services.
 func NewGateway(cfg *Config) *Gateway {
 	gw := &Gateway{
 		Ser:      make(map[string]*Service),
@@ -73,19 +78,27 @@ func NewGateway(cfg *Config) *Gateway {
 
 	for i := range cfg.Services {
 		currSer := &cfg.Services[i]
-
-		target, err := url.Parse(currSer.Url)
-		if err != nil {
+		// Check if there is any url provided for the service
+		if len(currSer.Urls) == 0 {
+			log.Printf("Service %s does not have any urls defined", currSer.Name)
 			return nil
 		}
 
-		currSer.proxy = httputil.NewSingleHostReverseProxy(target)
+		for _, taUrl := range currSer.Urls {
+			target, err := url.Parse(taUrl)
+			if err != nil {
+				return nil
+			}
+			proxy := httputil.NewSingleHostReverseProxy(target)
+			currSer.proxies = append(currSer.proxies, proxy)
+		}
 		gw.Ser[currSer.Route] = currSer
 	}
 
 	return gw
 }
 
+// findService looks up a Service by matching request path prefixes against registered routes.
 func (g *Gateway) findService(r *http.Request) *Service {
 	for route, service := range g.Ser {
 		if strings.HasPrefix(r.URL.Path, route) {
@@ -96,6 +109,17 @@ func (g *Gateway) findService(r *http.Request) *Service {
 	return nil
 }
 
+// NewProxy returns a reverse proxy for the service using round-robin load balancing.
+func (s *Service) NewProxy() *httputil.ReverseProxy {
+	newVal := atomic.AddInt64(&s.count, 1)
+
+	index := newVal % int64(len(s.proxies))
+	return s.proxies[index]
+}
+
+// handleGateway is the main HTTP handler for the gateway.
+// It finds the target service for the request, wraps the service proxy with configured middleware (in reverse order),
+// and forwards the request to the service proxy. If no service is found it returns 404.
 func (g *Gateway) handleGateway(w http.ResponseWriter, r *http.Request) {
 	service := g.findService(r)
 	if service == nil {
@@ -104,7 +128,7 @@ func (g *Gateway) handleGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var curr http.Handler = service.proxy
+	var curr http.Handler = service.NewProxy()
 	for i := len(service.Middleware) - 1; i == 0; i-- {
 		middlewareName := service.Middleware[i]
 		middleware, ok := g.wrappers[middlewareName]

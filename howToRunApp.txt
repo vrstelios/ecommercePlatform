@@ -1,8 +1,10 @@
 
-1) run: Backend1
+1) run: Backend1 or Backend3
 2) run: Backend2
 3) run: Gateway
 	
 after all, in Power-Shell run: 
-Invoke-WebRequest http://localhost:8080/products   # for BE1
-Invoke-WebRequest http://localhost:8080/users          #for BE2
+iwr -v -Headers @{ "X-API-KEY" = "abc-123" } http://localhost:8080/products     # for BE2
+iwr -v -Headers @{ "X-API-KEY" = "abc" } http://localhost:8080/users            # for BE1
+
+

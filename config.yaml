@@ -9,10 +9,13 @@ middleware_config:
 services:
   - name: "user-service"
     route_pattern: "/users"
-    url: "http://localhost:8081"
-    middleware: []
+    urls:
+      - "http://localhost:8081"
+      - "http://localhost:8083"
+    middleware: ["auth_apikey"]
 
   - name: "product-service"
     route_pattern: "/product"
-    url: "http://localhost:8082"
+    urls:
+      - "http://localhost:8082"
     middleware: ["auth_apikey"]

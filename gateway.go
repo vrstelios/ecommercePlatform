@@ -1,16 +1,19 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v3"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -28,9 +31,27 @@ var timer = prometheus.NewHistogramVec(
 		Buckets: prometheus.DefBuckets,
 	}, []string{"method", "service"})
 
+var rateLimited = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "gateway_rate_limited_total",
+		Help: "Number of requests rejected by rate limiter",
+	}, []string{"service", "reason"},
+)
+
+var cbState = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "gateway_circuit_breaker_state",
+		Help: "Circuit breaker state per service (0=closed,1=open,2=half-open)",
+	}, []string{"service"},
+)
+
+var proxyCanceledCounter = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "gateway_proxy_canceled_total",
+	Help: "Count of canceled proxied requests (client canceled).",
+})
+
 func init() {
-	prometheus.MustRegister(counter)
-	prometheus.MustRegister(timer)
+	prometheus.MustRegister(counter, timer, rateLimited, cbState, proxyCanceledCounter)
 }
 
 type statusRecorder struct {
@@ -65,14 +86,142 @@ type Service struct {
 
 	proxies []*httputil.ReverseProxy
 	count   int64
+
+	// Tuning values
+	RateLimitRPS          float64 `yaml:"rate_limit_rps"`
+	RateLimitBurst        float64 `yaml:"rate_limit_burst"`
+	CBFailureThreshold    int     `yaml:"cb_failure_threshold"`
+	CBResetTimeoutSeconds int     `yaml:"cb_reset_timeout_seconds"`
 }
 
 type MiddlewareWrapper func(next http.Handler) http.Handler
 
+type TokenBucket struct {
+	mu       sync.Mutex
+	tokens   float64
+	last     time.Time
+	rate     float64
+	capacity float64
+}
+
+func NewTokenBucket(rate, capacity float64) *TokenBucket {
+	return &TokenBucket{
+		tokens:   capacity,
+		last:     time.Now(),
+		rate:     rate,
+		capacity: capacity,
+	}
+}
+
+func (tb *TokenBucket) TryConsume() bool {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+
+	now := time.Now()
+	elapsed := now.Sub(tb.last).Seconds()
+	tb.last = now
+	tb.tokens += elapsed * tb.rate
+	if tb.tokens > tb.capacity {
+		tb.tokens = tb.capacity
+	}
+	if tb.tokens >= 1.0 {
+		tb.tokens -= 1.0
+		return true
+	}
+	return false
+}
+
+type CBState int
+
+const (
+	CBClosed CBState = iota
+	CBOpen
+	CBHalfOpen
+)
+
+type CircuitBreaker struct {
+	mu            sync.Mutex
+	state         CBState
+	failures      int
+	lastFailure   time.Time
+	failureThresh int
+	resetTimeout  time.Duration
+	halfProbes    int
+}
+
+func NewCircuitBreaker(failureThresh int, resetTimeoutSeconds int) *CircuitBreaker {
+	if failureThresh <= 0 {
+		failureThresh = 5
+	}
+	if resetTimeoutSeconds <= 0 {
+		resetTimeoutSeconds = 10
+	}
+	return &CircuitBreaker{
+		state:         CBClosed,
+		failures:      0,
+		failureThresh: failureThresh,
+		resetTimeout:  time.Duration(resetTimeoutSeconds) * time.Second,
+		halfProbes:    1,
+	}
+}
+
+func (cb *CircuitBreaker) AllowRequest() bool {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	now := time.Now()
+
+	switch cb.state {
+	case CBClosed:
+		return true
+	case CBOpen:
+		if now.Sub(cb.lastFailure) > cb.resetTimeout {
+			cb.state = CBHalfOpen
+			cb.halfProbes = 1
+			return true
+		}
+		return false
+	case CBHalfOpen:
+		if cb.halfProbes > 0 {
+			cb.halfProbes--
+			return true
+		}
+		return false
+	default:
+		return false
+	}
+}
+
+func (cb *CircuitBreaker) Report(success bool) {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	if success {
+		cb.failures = 0
+		cb.state = CBClosed
+		return
+	}
+	cb.failures++
+	cb.lastFailure = time.Now()
+	if cb.failures >= cb.failureThresh {
+		cb.state = CBOpen
+	}
+	if cb.state == CBHalfOpen {
+		cb.state = CBOpen
+	}
+}
+
+func (cb *CircuitBreaker) State() CBState {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	return cb.state
+}
+
 type Gateway struct {
-	Ser      map[string]*Service
-	wrappers map[string]MiddlewareWrapper
-	apiKeys  map[string]bool
+	Ser             map[string]*Service
+	wrappers        map[string]MiddlewareWrapper
+	apiKeys         map[string]bool
+	rateLimiters    sync.Map
+	CircuitBreakers map[string]*CircuitBreaker
+	transport       *http.Transport
 }
 
 func (g *Gateway) register(name string, wrapper MiddlewareWrapper) {
@@ -113,9 +262,101 @@ func (g *Gateway) metricsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func (g *Gateway) rateLimitMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		service := g.findService(r)
+
+		apiKey := r.Header.Get("X-API-KEY")
+		key := apiKey
+		if key == "" {
+			host, _, err := net.SplitHostPort(r.RemoteAddr)
+			if err != nil {
+				key = r.RemoteAddr
+			} else {
+				key = host
+			}
+		}
+
+		rate := 100.0
+		burst := 200.0
+		if service != nil {
+			if service.RateLimitRPS > 0 {
+				rate = service.RateLimitRPS
+			}
+			if service.RateLimitBurst > 0 {
+				burst = service.RateLimitBurst
+			}
+		}
+
+		mapKey := key
+		if service != nil {
+			mapKey = mapKey + ":" + service.Route
+		}
+
+		val, ok := g.rateLimiters.Load(mapKey)
+		if !ok {
+			tb := NewTokenBucket(rate, burst)
+			g.rateLimiters.Store(mapKey, tb)
+			val = tb
+		}
+		tb := val.(*TokenBucket)
+		if !tb.TryConsume() {
+			serviceName := "unknown"
+			if service != nil {
+				serviceName = service.Name
+			}
+			rateLimited.WithLabelValues(serviceName, "token_bucket").Inc()
+			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (g *Gateway) circuitBreakerMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		service := g.findService(r)
+		if service == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		cb, ok := g.CircuitBreakers[service.Route]
+		if !ok {
+			cb = NewCircuitBreaker(service.CBFailureThreshold, service.CBResetTimeoutSeconds)
+			g.CircuitBreakers[service.Route] = cb
+		}
+		cbState.WithLabelValues(service.Name).Set(float64(cb.State()))
+
+		if !cb.AllowRequest() {
+			log.Printf("circuit open for service %s, rejection request", service.Name)
+			http.Error(w, "service temporarily unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		rec := &statusRecorder{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK,
+		}
+		next.ServeHTTP(rec, r)
+		if rec.statusCode >= 500 {
+			cb.Report(false)
+		} else {
+			cb.Report(true)
+		}
+		cbState.WithLabelValues(service.Name).Set(float64(cb.State()))
+	})
+}
+
 // NewGateway creates a Gateway from the provided Config.
 // It builds the apiKeys map, registers built-in middleware and prepares reverse proxies for services.
 func NewGateway(cfg *Config) *Gateway {
+	sharedTransport := &http.Transport{
+		MaxIdleConns:          20000,
+		MaxIdleConnsPerHost:   5000,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+	}
 	gw := &Gateway{
 		Ser:      make(map[string]*Service),
 		wrappers: make(map[string]MiddlewareWrapper),
@@ -127,6 +368,8 @@ func NewGateway(cfg *Config) *Gateway {
 	}
 	gw.register("auth_apikey", gw.authAPIKeyMiddleware)
 	gw.register("metrics", gw.metricsMiddleware)
+	gw.register("rate_limit", gw.rateLimitMiddleware)
+	gw.register("circuit_breaker", gw.circuitBreakerMiddleware)
 
 	for i := range cfg.Services {
 		currSer := &cfg.Services[i]
@@ -135,13 +378,22 @@ func NewGateway(cfg *Config) *Gateway {
 			log.Printf("Service %s does not have any urls defined", currSer.Name)
 			return nil
 		}
-
-		for _, taUrl := range currSer.Urls {
-			target, err := url.Parse(taUrl)
+		for j := 0; j < len(currSer.Urls); j++ {
+			target, err := url.Parse(currSer.Urls[j])
 			if err != nil {
+				log.Printf("invalid url %s for service %s: %v", currSer.Urls[j], currSer.Name, err)
 				return nil
 			}
 			proxy := httputil.NewSingleHostReverseProxy(target)
+			proxy.Transport = sharedTransport
+			proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
+				if err == context.Canceled {
+					proxyCanceledCounter.Inc()
+					return
+				}
+				log.Printf("proxy error: %v (backend=%s client=%s path=%s)", err, target.String(), req.RemoteAddr, req.URL.Path)
+				http.Error(rw, "bad gateway", http.StatusBadGateway)
+			}
 			currSer.proxies = append(currSer.proxies, proxy)
 		}
 		gw.Ser[currSer.Route] = currSer

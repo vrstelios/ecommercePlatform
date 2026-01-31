@@ -13,11 +13,17 @@ services:
       - "http://localhost:8081"
       - "http://localhost:8083"
     middleware:
+      - "rate_limit"
       - "metrics"
+    rate_limit_rps: 2
+    rate_limit_burst: 3
 
   - name: "product-service"
     route_pattern: "/product"
     urls:
       - "http://localhost:8082"
     middleware:
-     - "metrics"
+      - "rate_limit"
+      - "metrics"
+    rate_limit_rps: 2
+    rate_limit_burst: 3

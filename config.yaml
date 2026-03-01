@@ -21,7 +21,8 @@ services:
   - name: "product-service"
     route_pattern: "/product"
     urls:
-      - "http://localhost:8082"
+      #- "http://localhost:8082"
+      - "http://localhost:8085"
     middleware:
       - "rate_limit"
       - "metrics"

@@ -13,7 +13,7 @@ func hello(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Hello from the backend-2"))
 }
 
-func main() {
+/*func main() {
 	router := http.NewServeMux()
 
 	router.HandleFunc("/", hello)
@@ -27,4 +27,4 @@ func main() {
 	if err != nil {
 		log.Fatal("Error string the server")
 	}
-}
+}*/

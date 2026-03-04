@@ -34,7 +34,7 @@ func main() {
 		api.GetProductsElastic(c, es)
 	})
 
-	fmt.Println(`backend-product running on port 8085`)
+	fmt.Println(`backend-product running on port 8082`)
 
-	router.Run("localhost:8085")
+	router.Run("localhost:8082")
 }

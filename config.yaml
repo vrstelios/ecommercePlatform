@@ -7,14 +7,16 @@ middleware_config:
       - "dwe-659"
 
 services:
-  - name: "user-service"
-    route_pattern: "/users"
+  - name: "cart-inventory-service"
+    #route_pattern: "/users"
+    route_pattern: "/api"
     urls:
       - "http://localhost:8081"
-      - "http://localhost:8083"
+      #- "http://localhost:8083"
     middleware:
       - "rate_limit"
       - "metrics"
+      - "auth_apikey"
     rate_limit_rps: 2
     rate_limit_burst: 3
 
@@ -22,9 +24,10 @@ services:
     route_pattern: "/product"
     urls:
       #- "http://localhost:8082"
-      - "http://localhost:8085"
+      - "http://localhost:8082"
     middleware:
       - "rate_limit"
       - "metrics"
+      - "auth_apikey"
     rate_limit_rps: 2
     rate_limit_burst: 3

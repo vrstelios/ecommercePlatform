@@ -2,7 +2,6 @@ package api
 
 import (
 	"ecommercePlatform/backend1/models"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gocql/gocql"
 	"github.com/google/uuid"
@@ -11,7 +10,7 @@ import (
 	"time"
 )
 
-// In-memory storage (Redis/Cassandra)
+// In-memory storage
 var (
 	cart      = make(map[string][]models.CartItems)
 	inventory = make(map[string]int)
@@ -33,24 +32,23 @@ func PostCartItems(ctx *gin.Context, session *gocql.Session) {
 		item.Id = uid.String()
 	}
 
-	var currentStock int
-	err := session.Query("SELECT stock_quantity FROM inventory_items WHERE product_id = ?", item.ProductId).Scan(&currentStock)
+	var stock int
+	err := session.Query("SELECT stock_quantity FROM inventory_items WHERE product_id = ?", item.ProductId).Scan(&stock)
 	if err != nil {
 		ctx.JSON(404, gin.H{"error": "Product not found"})
 		return
 	}
-	fmt.Println(currentStock, item.Quantity)
-	if currentStock < item.Quantity {
+	if stock < item.Quantity {
 		ctx.JSON(400, gin.H{"error": "Not enough stock"})
 		return
 	}
 
-	newStock := currentStock - item.Quantity
+	newStock := stock - item.Quantity
 
 	query := "UPDATE inventory_items SET stock_quantity = ? WHERE product_id = ? IF stock_quantity = ?"
 
 	mapping := make(map[string]interface{})
-	applied, err := session.Query(query, newStock, item.ProductId, currentStock).MapScanCAS(mapping)
+	applied, err := session.Query(query, newStock, item.ProductId, stock).MapScanCAS(mapping)
 	if err != nil {
 		ctx.JSON(500, gin.H{"error": err.Error()})
 		return

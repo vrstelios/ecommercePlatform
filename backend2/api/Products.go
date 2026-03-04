@@ -11,9 +11,6 @@ import (
 	"strconv"
 )
 
-// Use map because don't have database
-var products = make(map[string]models.Products)
-
 func PostProductsElastic(ctx *gin.Context, es *elasticsearch.Client) {
 	prod := models.Products{}
 	err := ctx.ShouldBindJSON(&prod)

@@ -9,8 +9,7 @@ import (
 )
 
 // Cassandra είναι εξαιρετική στο να διαχειρίζεται εκατομμύρια writes το δευτερόλεπτο
-// H Cassandra υποστηρίζει το Lightweight Transaction (LWT). Αυτό αντικαθιστά το mu.Lock() που είχες.
-// Redis είναι εξαιρετική στο να διαχειρίζεται γρήγορα reads και writes με χαμηλή καθυστέρηση
+// H Cassandra υποστηρίζει το Lightweight Transaction (LWT). Αυτό αντικαθιστά το mu.Lock().
 
 func main() {
 	cluster := gocql.NewCluster("localhost")

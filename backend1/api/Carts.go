@@ -6,15 +6,7 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/google/uuid"
 	"net/http"
-	"sync"
 	"time"
-)
-
-// In-memory storage
-var (
-	cart      = make(map[string][]models.CartItems)
-	inventory = make(map[string]int)
-	mu        sync.Mutex
 )
 
 func PostCartItems(ctx *gin.Context, session *gocql.Session) {
@@ -38,13 +30,13 @@ func PostCartItems(ctx *gin.Context, session *gocql.Session) {
 		ctx.JSON(404, gin.H{"error": "Product not found"})
 		return
 	}
+
 	if stock < item.Quantity {
 		ctx.JSON(400, gin.H{"error": "Not enough stock"})
 		return
 	}
 
 	newStock := stock - item.Quantity
-
 	query := "UPDATE inventory_items SET stock_quantity = ? WHERE product_id = ? IF stock_quantity = ?"
 
 	mapping := make(map[string]interface{})
@@ -59,7 +51,11 @@ func PostCartItems(ctx *gin.Context, session *gocql.Session) {
 		return
 	}
 
-	session.Query("INSERT INTO cart_items (id, cart_id, product_id, quantity) VALUES (?, ?, ?, ?) USING TTL 900", item.Id, item.CartId, item.ProductId, item.Quantity).Exec()
+	err = session.Query("INSERT INTO cart_items (id, cart_id, product_id, quantity) VALUES (?, ?, ?, ?) USING TTL 900", item.Id, item.CartId, item.ProductId, item.Quantity).Exec()
+	if err != nil {
+		ctx.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
 	ctx.JSON(200, gin.H{"message": "Success! Stock updated and reserved."})
 }
 

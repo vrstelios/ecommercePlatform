@@ -2,9 +2,11 @@ package api
 
 import (
 	"ecommercePlatform/backend1/models"
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/gocql/gocql"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"net/http"
 	"time"
 )
@@ -126,4 +128,31 @@ func GetInventory(ctx *gin.Context, session *gocql.Session) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"productId": id, "stock": stock})
+}
+
+func CreateOrderFromCart(ctx *gin.Context, session *gocql.Session, rdb *redis.Client) {
+	id := ctx.Param("id")
+	var carts []models.CartItems
+	query := session.Query("SELECT product_id, quantity FROM cart_items WHERE cart_id = ?", id).Iter()
+
+	var pId string
+	var qty int
+	for query.Scan(&pId, &qty) {
+		carts = append(carts, models.CartItems{ProductId: pId, Quantity: qty})
+	}
+	if len(carts) == 0 {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "Cart not found"})
+		return
+	}
+
+	// Create order in Backend 3 (Redis)
+	newOrderId := uuid.NewString()
+	orderData, _ := json.Marshal(map[string]string{"id": newOrderId, "status": "pending", "cartId": id})
+	err := rdb.Set(ctx.Request.Context(), newOrderId, orderData, 30*time.Minute).Err()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save order to Redis"})
+		return
+	}
+
+	ctx.JSON(200, gin.H{"order_id": newOrderId, "status": "pending"})
 }

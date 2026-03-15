@@ -1,11 +1,6 @@
 package main
 
-import (
-	"log"
-	"net/http"
-)
-
-func hello(w http.ResponseWriter, r *http.Request) {
+/*func hello(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("backend-3", "true")
 	w.WriteHeader(http.StatusOK)
 
@@ -26,4 +21,4 @@ func main() {
 	if err != nil {
 		log.Fatal("Error staring the server")
 	}
-}
+}*/

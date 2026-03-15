@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gocql/gocql"
+	"github.com/redis/go-redis/v9"
 	"log"
 )
 
@@ -12,17 +13,13 @@ import (
 // H Cassandra υποστηρίζει το Lightweight Transaction (LWT). Αυτό αντικαθιστά το mu.Lock().
 
 func main() {
-	cluster := gocql.NewCluster("localhost")
-	cluster.Keyspace = "ecommerce"
-	cluster.Consistency = gocql.Quorum
-	cluster.Port = 9042
-
-	// Create a session to interact with the Cassandra
-	session, err := cluster.CreateSession()
-	if err != nil {
-		log.Fatalf("Cassandra connection failed: %v", err)
-	}
+	// Connect to Cassandra
+	session := ConnectCassandra()
 	defer session.Close()
+
+	// Connect to Redis
+	rdb := ConnectRedis()
+	defer rdb.Close()
 
 	router := gin.Default()
 
@@ -43,9 +40,36 @@ func main() {
 		routerEndpoints.GET("/inventory/:id", func(c *gin.Context) {
 			api.GetInventory(c, session)
 		})
+
+		routerEndpoints.POST("/orders/create/:id", func(ctx *gin.Context) {
+			api.CreateOrderFromCart(ctx, session, rdb)
+		})
 	}
 
 	fmt.Println(`backend-cart&inventory running on port 8081`)
 
 	router.Run("localhost:8081")
+}
+
+func ConnectRedis() *redis.Client {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
+	return rdb
+}
+
+func ConnectCassandra() *gocql.Session {
+	cluster := gocql.NewCluster("localhost")
+	cluster.Keyspace = "ecommerce"
+	cluster.Consistency = gocql.Quorum
+	cluster.Port = 9042
+
+	session, err := cluster.CreateSession()
+	if err != nil {
+		log.Fatalf("Cassandra connection failed: %v", err)
+	}
+
+	return session
 }

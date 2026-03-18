@@ -5,19 +5,18 @@ CREATE KEYSPACE IF NOT EXISTS ecommerce
 WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
 
 CREATE TABLE inventory_items (
-    id UUID,
-    product_id UUID,
+    product_id text PRIMARY KEY,
+    id text,
     stock_quantity int,
-    last_updated timestamp,
-    PRIMARY KEY (product_id)
+    last_updated timestamp
 );
 
 CREATE TABLE cart_items (
-    id UUID,
-    cart_id UUID,
-    product_id UUID,
+    cart_id text,
+    product_id text,
+    id text,
     quantity int,
-    PRIMARY KEY (cart_id)
+    PRIMARY KEY (cart_id, product_id)
 );
 
 INSERT INTO inventory_items (product_id, id, stock_quantity, last_updated)

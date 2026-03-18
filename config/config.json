@@ -1,0 +1,16 @@
+{
+  "cassandra": {
+    "hosts": ["localhost"],
+    "keyspace": "ecommerce",
+    "port": 9042
+  },
+  "redis": {
+    "addr": "localhost:6379",
+    "password": "",
+    "db": 0
+  },
+  "kafka": {
+    "broker": "127.0.0.1:9092",
+    "topic": "payment-events"
+  }
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
 	"net/http"
+	"time"
 )
 
 func PostOrderPayment(ctx *gin.Context, rdb *redis.Client, KafkaWriter *kafka.Writer) {
@@ -50,7 +51,7 @@ func PostOrderPayment(ctx *gin.Context, rdb *redis.Client, KafkaWriter *kafka.Wr
 		Value: eventPayload,
 	})
 	if err != nil {
-		ctx.JSON(500, gin.H{"error": "Failed to send event to Kafka"})
+		ctx.JSON(500, gin.H{"error": "Failed to send event to Kafka", "Error": err.Error()})
 		return
 	}
 
@@ -59,12 +60,14 @@ func PostOrderPayment(ctx *gin.Context, rdb *redis.Client, KafkaWriter *kafka.Wr
 
 func StartPaymentWorker(session *gocql.Session, rdb *redis.Client) {
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  []string{"localhost:9092"},
+		Brokers:  []string{"127.0.0.1:9092"}, // Ίδια διεύθυνση με τον writer
 		Topic:    "payment-events",
-		GroupID:  "order-group",
-		MinBytes: 10e3,
-		MaxBytes: 10e6,
+		GroupID:  "payment-finalizer-group", // Σημαντικό για να ξέρει ο Kafka τι έχει διαβαστεί
+		MinBytes: 10e3,                      // 10KB
+		MaxBytes: 10e6,                      // 10MB
+		MaxWait:  1 * time.Second,
 	})
+	defer reader.Close()
 
 	fmt.Println("Worker: Waiting for payment events...")
 
@@ -72,8 +75,9 @@ func StartPaymentWorker(session *gocql.Session, rdb *redis.Client) {
 		m, err := reader.ReadMessage(context.Background())
 		if err != nil {
 			fmt.Printf("Worker Error: %v\n", err)
-			break
+			continue
 		}
+		fmt.Printf("Worker: Received message: %s\n", string(m.Value))
 
 		var event struct {
 			OrderID string `json:"order_id"`

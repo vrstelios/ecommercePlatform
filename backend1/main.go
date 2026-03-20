@@ -1,17 +1,26 @@
 package main
 
 import (
+	"context"
 	"ecommercePlatform/backend1/api"
 	"ecommercePlatform/config"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"log"
 )
 
 // Cassandra είναι εξαιρετική στο να διαχειρίζεται εκατομμύρια writes το δευτερόλεπτο
 // H Cassandra υποστηρίζει το Lightweight Transaction (LWT). Αυτό αντικαθιστά το mu.Lock().
 
 func main() {
-	cfg, _ := config.LoadConfig("C:/Users/User/GolandProjects/ecommercePlatform/config/config.json")
+	cfg, err := config.LoadConfig(config.FilePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Connect to Postgres
+	pdb := cfg.ConnectPostgres()
+	defer pdb.Close(context.Background())
 
 	// Connect to Cassandra
 	session := cfg.ConnectCassandra()
@@ -20,6 +29,9 @@ func main() {
 	// Connect to Redis
 	rdb := cfg.ConnectRedis()
 	defer rdb.Close()
+
+	// Get Kafka Writer for API
+	kafkaWriter := cfg.GetProductsKafkaWriter()
 
 	router := gin.Default()
 
@@ -34,7 +46,7 @@ func main() {
 		})
 
 		routerEndpoints.POST("/inventory", func(c *gin.Context) {
-			api.PostInventory(c, session)
+			api.PostInventory(c, session, kafkaWriter, pdb)
 		})
 
 		routerEndpoints.GET("/inventory/:id", func(c *gin.Context) {

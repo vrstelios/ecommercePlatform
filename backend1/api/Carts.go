@@ -1,12 +1,16 @@
 package api
 
 import (
+	"context"
 	"ecommercePlatform/backend1/models"
+	m "ecommercePlatform/backend2/models"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/gocql/gocql"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
+	"github.com/segmentio/kafka-go"
 	"net/http"
 	"time"
 )
@@ -92,7 +96,7 @@ func GetCartItems(ctx *gin.Context, session *gocql.Session) {
 	ctx.JSON(http.StatusOK, items)
 }
 
-func PostInventory(ctx *gin.Context, session *gocql.Session) {
+func PostInventory(ctx *gin.Context, session *gocql.Session, kafkaWriter *kafka.Writer, db *pgx.Conn) {
 	var item models.InventoryItems
 	if err := ctx.ShouldBindJSON(&item); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
@@ -107,6 +111,14 @@ func PostInventory(ctx *gin.Context, session *gocql.Session) {
 		item.Id = uid.String()
 	}
 
+	// QUERY POSTGRES
+	var p m.Products
+	err := db.QueryRow(context.Background(), "SELECT id, name, description, price FROM products WHERE id = $1", item.ProductId).Scan(&p.Id, &p.Name, &p.Description, &p.Price)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "Product not found in Postgres"})
+		return
+	}
+
 	now := time.Now()
 	query := "INSERT INTO inventory_items (product_id, id, stock_quantity, last_updated) VALUES (?, ?, ?, ?)"
 	if err := session.Query(query, item.ProductId, item.Id, item.StockQuantity, now).Exec(); err != nil {
@@ -114,7 +126,20 @@ func PostInventory(ctx *gin.Context, session *gocql.Session) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "Inventory updated in Cassandra"})
+	// Send event to Kafka for ElasticSearch sync
+	enrichedEvent := map[string]interface{}{
+		"id":          p.Id,
+		"name":        p.Name,
+		"description": p.Description,
+		"price":       p.Price,
+	}
+	eventData, _ := json.Marshal(enrichedEvent)
+	kafkaWriter.WriteMessages(ctx, kafka.Message{
+		Key:   []byte(p.Id),
+		Value: eventData,
+	})
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "Inventory updated and synced to Elastic"})
 }
 
 func GetInventory(ctx *gin.Context, session *gocql.Session) {

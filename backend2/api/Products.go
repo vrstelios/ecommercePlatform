@@ -2,16 +2,18 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"ecommercePlatform/backend2/models"
 	"encoding/json"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"net/http"
 	"strconv"
 )
 
-func PostProductsElastic(ctx *gin.Context, es *elasticsearch.Client) {
+func PostProductsElastic(ctx *gin.Context, es *elasticsearch.Client, db *pgx.Conn) {
 	prod := models.Products{}
 	err := ctx.ShouldBindJSON(&prod)
 	if err != nil {
@@ -25,6 +27,13 @@ func PostProductsElastic(ctx *gin.Context, es *elasticsearch.Client) {
 			return
 		}
 		prod.Id = uid.String()
+	}
+
+	masterSql := `INSERT INTO products (id, name, description, price) VALUES ($1, $2, $3, $4)`
+	_, err = db.Exec(context.Background(), masterSql, prod.Id, prod.Name, prod.Description, prod.Price)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save product to database"})
+		return
 	}
 
 	data, _ := json.Marshal(prod)

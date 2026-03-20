@@ -1,0 +1,49 @@
+These are the commands to call,
+
+Βήμα 1: Δημιουργία Προϊόντος & Inventory
+Endpoint: POST http://localhost:8080/api/inventory (Backend 1)
+Body:
+{
+    "productId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "stock": 100
+}
+
+Βήμα 2: Προσθήκη στο Καλάθι
+Endpoint: POST http://localhost:8080/api/cart/items (Backend 1)
+Body:
+{
+   "cartId": "7f7703a6-7847-4610-9104-2a902287e857",
+   "productId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+   "quantity": 2
+}
+
+Βήμα 3: Δημιουργία Παραγγελίας (Checkout)
+Endpoint: POST http://localhost:8080/api/orders/create/:cartId (Backend 1)
+Result:{
+    "order_id": "66279068-c4c5-4545-ae30-8a5bfe9e72d3",
+    "status": "pending"
+}
+
+
+Βήμα 4: Πληρωμή
+Endpoint: POST http://localhost:8080/orders/:cartId/pay (Backend 3)
+Body:
+{
+  "orderId": "b3d78c67-6143-4ed0-8771-fe598492c5a6",
+  "userId": "dd376484-ae89-4f65-94b7-c0e06f156ab1",
+  "amount": 250.50,
+  "paymentMethod": "credit_card"
+}
+
+Βήμα 5: Βαλε προϊόντα
+Endpoint: POST http://localhost:8080/products (Backend 2)
+Βody:
+{
+  "name": "Laptop",
+  "price": 1200.00,
+  "description": "High performance laptop MacookPro"
+}
+
+Βήμα 6: Search προϊόντα
+Endpoint: http://localhost:8080/products/v2?search=Laptop&page=1&limit=10 (Backend 2)
+

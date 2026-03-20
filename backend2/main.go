@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"ecommercePlatform/backend2/api"
+	"ecommercePlatform/config"
 	"fmt"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/gin-gonic/gin"
@@ -16,19 +18,32 @@ import (
 // run -> ttp://localhost:9200 in browser to see if elasticsearch is running
 
 func main() {
-	router := gin.Default()
+	cfg, err := config.LoadConfig(config.FilePath)
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	// Connect to Postgres
+	pdb := cfg.ConnectPostgres()
+	defer pdb.Close(context.Background())
+
+	// Connect to ElasticSearch
 	es, err := elasticsearch.NewDefaultClient()
 	if err != nil {
-		log.Fatalf("Error creating the client: %s", err)
+		log.Fatalf("ES Client Error:  %s", err)
 	}
+
+	// Start the background worker to sync products to Elasticsearch
+	go api.StartElasticSyncWorker(es, cfg.Kafka.Broker, "product-updates")
+
+	router := gin.Default()
 
 	// Use elasticsearch for products
 	router.GET("/products", func(c *gin.Context) {
 		api.GetProduct(c, es)
 	})
 	router.POST("/products", func(c *gin.Context) {
-		api.PostProductsElastic(c, es)
+		api.PostProductsElastic(c, es, pdb)
 	})
 	router.GET("/products/v2", func(c *gin.Context) {
 		api.GetProductsElastic(c, es)

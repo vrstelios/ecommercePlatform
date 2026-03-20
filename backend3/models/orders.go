@@ -10,6 +10,7 @@ type Orders struct {
 type Payment struct {
 	Id            string  `json:"id"`
 	OrderId       string  `json:"orderId"`
+	UserId        string  `json:"userId"`
 	Amount        float64 `json:"amount"`
 	PaymentMethod string  `json:"paymentMethod"`
 	Status        string  `json:"status"`

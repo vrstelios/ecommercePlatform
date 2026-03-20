@@ -1,14 +1,18 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gocql/gocql"
+	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
 	"os"
 	"time"
 )
+
+const FilePath = "C:/Users/User/GolandProjects/ecommercePlatform/config/config.json"
 
 type Config struct {
 	Cassandra struct {
@@ -22,9 +26,18 @@ type Config struct {
 		DB       int    `json:"db"`
 	} `json:"redis"`
 	Kafka struct {
-		Broker string `json:"broker"`
-		Topic  string `json:"topic"`
+		Broker        string `json:"broker"`
+		TopicProducts string `json:"topic_products"`
+		TopicPayments string `json:"topic_payments"`
 	} `json:"kafka"`
+	Database struct {
+		Host     string `json:"host"`
+		Port     int    `json:"port"`
+		User     string `json:"user"`
+		Password string `json:"password"`
+		Name     string `json:"name"`
+		SSLMode  string `json:"sslmode"`
+	} `json:"database"`
 }
 
 // Load Config
@@ -37,6 +50,18 @@ func LoadConfig(path string) (*Config, error) {
 	var cfg Config
 	err = json.NewDecoder(file).Decode(&cfg)
 	return &cfg, err
+}
+
+// Connect-Postgres
+func (cfg *Config) ConnectPostgres() *pgx.Conn {
+	cnnDB := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=Asia/Tehran",
+		cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.Name, cfg.Database.SSLMode)
+
+	con, err := pgx.Connect(context.Background(), cnnDB)
+	if err != nil {
+		panic("Failed to connect to db: " + err.Error())
+	}
+	return con
 }
 
 // Connect-Cassandra
@@ -63,10 +88,21 @@ func (cfg *Config) ConnectRedis() *redis.Client {
 }
 
 // GetKafkaWriter
+func (cfg *Config) GetProductsKafkaWriter() *kafka.Writer {
+	return &kafka.Writer{
+		Addr:                   kafka.TCP(cfg.Kafka.Broker),
+		Topic:                  cfg.Kafka.TopicProducts,
+		Balancer:               &kafka.LeastBytes{},
+		AllowAutoTopicCreation: true,
+		Async:                  false,
+		WriteTimeout:           10 * time.Second,
+	}
+}
+
 func (cfg *Config) GetKafkaWriter() *kafka.Writer {
 	return &kafka.Writer{
 		Addr:                   kafka.TCP(cfg.Kafka.Broker),
-		Topic:                  cfg.Kafka.Topic,
+		Topic:                  cfg.Kafka.TopicPayments,
 		Balancer:               &kafka.LeastBytes{},
 		AllowAutoTopicCreation: true,
 		Async:                  false,

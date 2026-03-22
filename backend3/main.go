@@ -4,8 +4,9 @@ import (
 	"context"
 	"ecommercePlatform/backend3/api"
 	"ecommercePlatform/config"
-	"fmt"
+	"ecommercePlatform/utils"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"log"
 )
 
@@ -43,12 +44,16 @@ func main() {
 	kafkaWriter := cfg.GetKafkaWriter()
 
 	router := gin.Default()
+	logger, _ := zap.NewProduction()
 
 	router.POST("/orders/:id/pay", func(ctx *gin.Context) {
-		api.PostOrderPayment(ctx, rdb, kafkaWriter)
+		reqLogger := utils.GetLoggerWithTrace(ctx, logger)
+		reqLogger.Info("Payment request received")
+
+		api.PostOrderPayment(ctx, rdb, kafkaWriter, reqLogger)
 	})
 
-	fmt.Println(`backend-order running on port 8083`)
+	logger.Info(`backend-order running on port 8083`)
 
 	router.Run("localhost:8083")
 }

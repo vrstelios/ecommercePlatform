@@ -6,10 +6,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
+	"go.uber.org/zap"
 	"net/http"
 )
 
-func PostOrderPayment(ctx *gin.Context, rdb *redis.Client, KafkaWriter *kafka.Writer) {
+func PostOrderPayment(ctx *gin.Context, rdb *redis.Client, KafkaWriter *kafka.Writer, logger *zap.Logger) {
+	corId := ctx.GetHeader("X-Correlation-Id")
 	cartId := ctx.Param("id")
 	var payment models.Payment
 	err := ctx.ShouldBindJSON(&payment)
@@ -22,6 +24,12 @@ func PostOrderPayment(ctx *gin.Context, rdb *redis.Client, KafkaWriter *kafka.Wr
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "cartId query parameter is required for finalization"})
 		return
 	}
+
+	logger.Info("Processing payment",
+		zap.String("correlation_id", corId),
+		zap.String("order_id", payment.OrderId),
+		zap.Float64("amount", payment.Amount),
+	)
 
 	exists, _ := rdb.Exists(ctx.Request.Context(), payment.OrderId).Result()
 	if exists == 0 {
@@ -46,6 +54,9 @@ func PostOrderPayment(ctx *gin.Context, rdb *redis.Client, KafkaWriter *kafka.Wr
 	err = KafkaWriter.WriteMessages(ctx, kafka.Message{
 		Key:   []byte(payment.OrderId),
 		Value: eventPayload,
+		Headers: []kafka.Header{
+			{Key: "correlation_id", Value: []byte(ctx.GetHeader("correlation_id"))},
+		},
 	})
 	if err != nil {
 		ctx.JSON(500, gin.H{"error": "Failed to send event to Kafka", "Error": err.Error()})

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
+	"go.uber.org/zap"
 	"os"
 	"time"
 )
@@ -66,13 +67,14 @@ func (cfg *Config) ConnectPostgres() *pgx.Conn {
 
 // Connect-Cassandra
 func (cfg *Config) ConnectCassandra() *gocql.Session {
+	logger, _ := zap.NewProduction()
 	cluster := gocql.NewCluster(cfg.Cassandra.Hosts...)
 	cluster.Keyspace = cfg.Cassandra.Keyspace
 	cluster.Port = cfg.Cassandra.Port
 	cluster.Consistency = gocql.Quorum
 	session, err := cluster.CreateSession()
 	if err != nil {
-		fmt.Printf("Cassandra connection failed: %v\n", err)
+		logger.Error("Cassandra connection failed", zap.Error(err))
 		os.Exit(1)
 	}
 	return session

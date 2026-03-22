@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v3"
@@ -346,6 +347,19 @@ func (g *Gateway) circuitBreakerMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func (g *Gateway) correlationIdMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		corId := r.Header.Get("X-Correlation-Id")
+		if len(corId) == 0 {
+			corId = uuid.NewString()
+		}
+
+		r.Header.Set("X-Correlation-Id", corId)
+		w.Header().Set("X-Correlation-Id", corId)
+		next.ServeHTTP(w, r)
+	})
+}
+
 // NewGateway creates a Gateway from the provided Config.
 // It builds the apiKeys map, registers built-in middleware and prepares reverse proxies for services.
 func NewGateway(cfg *Config) *Gateway {
@@ -370,6 +384,7 @@ func NewGateway(cfg *Config) *Gateway {
 	gw.register("metrics", gw.metricsMiddleware)
 	gw.register("rate_limit", gw.rateLimitMiddleware)
 	gw.register("circuit_breaker", gw.circuitBreakerMiddleware)
+	gw.register("correlation_id", gw.correlationIdMiddleware)
 
 	for i := range cfg.Services {
 		currSer := &cfg.Services[i]

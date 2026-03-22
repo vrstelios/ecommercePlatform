@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/segmentio/kafka-go"
+	"go.uber.org/zap"
 )
 
 func StartElasticSyncWorker(es *elasticsearch.Client, broker string, topic string) {
@@ -17,30 +18,31 @@ func StartElasticSyncWorker(es *elasticsearch.Client, broker string, topic strin
 		GroupID: "elastic-sync-group",
 	})
 	defer reader.Close()
+	logger, _ := zap.NewProduction()
 
-	fmt.Println("Elastic Sync Worker: Waiting for product updates...")
+	logger.Info("Elastic Sync Worker: Waiting for product updates...")
 
 	for {
 		m, err := reader.ReadMessage(context.Background())
 		if err != nil {
-			fmt.Printf("Worker Error: %v\n", err)
+			logger.Error("Worker Error:", zap.Error(err))
 			continue
 		}
-		fmt.Printf("Worker: Received message: %s\n", string(m.Value))
+		logger.Info("Worker: Received message: ", zap.String("Value:", string(m.Value)))
 
 		var prod models.Products
 		if err = json.Unmarshal(m.Value, &prod); err != nil {
-			fmt.Println("Worker: Error parsing message")
+			logger.Error("Worker: Error parsing message")
 			continue
 		}
 
 		data, err := json.Marshal(prod)
 		if err != nil {
-			fmt.Println("Worker: Error marshaling product data", err)
+			logger.Error("Worker: Error marshaling product data", zap.Error(err))
 		}
 		res, err := es.Index("products", bytes.NewReader(data), es.Index.WithDocumentID(prod.Id))
 		if err == nil {
-			fmt.Printf("Sync: Product %s indexed to Elasticsearch\n", prod.Id)
+			logger.Error(fmt.Sprintf("Sync: Product %s indexed to Elasticsearch", prod.Id))
 			res.Body.Close()
 		}
 	}

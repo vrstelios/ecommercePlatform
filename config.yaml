@@ -12,6 +12,7 @@ services:
     urls:
       - "http://localhost:8081"
     middleware:
+      - "correlation_id"
       - "rate_limit"
       - "metrics"
       - "auth_apikey"
@@ -23,6 +24,7 @@ services:
     urls:
       - "http://localhost:8082"
     middleware:
+      - "correlation_id"
       - "rate_limit"
       - "metrics"
       - "auth_apikey"
@@ -34,6 +36,7 @@ services:
     urls:
       - "http://localhost:8083"
     middleware:
+      - "correlation_id"
       - "rate_limit"
       - "metrics"
       - "auth_apikey"

@@ -4,8 +4,9 @@ import (
 	"context"
 	"ecommercePlatform/backend1/api"
 	"ecommercePlatform/config"
-	"fmt"
+	"ecommercePlatform/utils"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"log"
 )
 
@@ -34,31 +35,42 @@ func main() {
 	kafkaWriter := cfg.GetProductsKafkaWriter()
 
 	router := gin.Default()
+	logger, _ := zap.NewProduction()
 
 	routerEndpoints := router.Group("/api")
 	{
 		routerEndpoints.POST("/cart/items", func(c *gin.Context) {
+			reqLogger := utils.GetLoggerWithTrace(c, logger)
+			reqLogger.Info("Inventory create item")
 			api.PostCartItems(c, session)
 		})
 
 		routerEndpoints.GET("/cart/items/:id", func(c *gin.Context) {
+			reqLogger := utils.GetLoggerWithTrace(c, logger)
+			reqLogger.Info("Inventory get item")
 			api.GetCartItems(c, session)
 		})
 
 		routerEndpoints.POST("/inventory", func(c *gin.Context) {
+			reqLogger := utils.GetLoggerWithTrace(c, logger)
+			reqLogger.Info("Inventory create received")
 			api.PostInventory(c, session, kafkaWriter, pdb)
 		})
 
 		routerEndpoints.GET("/inventory/:id", func(c *gin.Context) {
+			reqLogger := utils.GetLoggerWithTrace(c, logger)
+			reqLogger.Info("Inventory get received")
 			api.GetInventory(c, session)
 		})
 
 		routerEndpoints.POST("/orders/create/:id", func(ctx *gin.Context) {
+			reqLogger := utils.GetLoggerWithTrace(ctx, logger)
+			reqLogger.Info("Inventory create order")
 			api.CreateOrderFromCart(ctx, session, rdb)
 		})
 	}
 
-	fmt.Println(`backend-cart&inventory running on port 8081`)
+	logger.Info(`backend-cart&inventory running on port 8081`)
 
 	router.Run("localhost:8081")
 }

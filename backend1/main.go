@@ -10,9 +10,6 @@ import (
 	"log"
 )
 
-// Cassandra είναι εξαιρετική στο να διαχειρίζεται εκατομμύρια writes το δευτερόλεπτο
-// H Cassandra υποστηρίζει το Lightweight Transaction (LWT). Αυτό αντικαθιστά το mu.Lock().
-
 func main() {
 	cfg, err := config.LoadConfig(config.FilePath)
 	if err != nil {

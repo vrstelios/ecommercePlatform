@@ -5,14 +5,6 @@ DROP TABLE IF EXISTS cart_items;
 DROP TABLE IF EXISTS orders;
 DROP TABLE IF EXISTS carts;
 DROP TABLE IF EXISTS products;
-DROP TABLE IF EXISTS users_commerce;
-
-
-CREATE TABLE users_commerce (
-    id              UUID PRIMARY KEY,
-    email           TEXT NOT NULL,
-    password_hash   TEXT NOT NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
 
 CREATE TABLE products (
     id          UUID PRIMARY KEY,

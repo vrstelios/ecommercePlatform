@@ -11,13 +11,6 @@ import (
 	"log"
 )
 
-/*Το Elasticsearch δεν είναι απλά μια βάση, είναι μια μηχανή
-αναζήτησης που επιτρέπει "fuzzy search" (π.χ. να γράφεις
-"phne" και να βρίσκει "phone") και είναι ταχύτατο σε τεράστιο
-όγκο δεδομένων.*/
-
-// run -> ttp://localhost:9200 in browser to see if elasticsearch is running
-
 func main() {
 	cfg, err := config.LoadConfig(config.FilePath)
 	if err != nil {

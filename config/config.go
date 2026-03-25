@@ -9,6 +9,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
+	"log"
+	"net"
 	"os"
 	"time"
 )
@@ -39,6 +41,10 @@ type Config struct {
 		Name     string `json:"name"`
 		SSLMode  string `json:"sslmode"`
 	} `json:"database"`
+	GRPC struct {
+		Network string `json:"network"`
+		Address string `json:"address"`
+	}
 }
 
 // Load Config
@@ -87,6 +93,16 @@ func (cfg *Config) ConnectRedis() *redis.Client {
 		Password: cfg.Redis.Password,
 		DB:       cfg.Redis.DB,
 	})
+}
+
+// Connect-gRPC
+func (cfg *Config) ConnectGRPC() net.Listener {
+	lis, err := net.Listen(cfg.GRPC.Network, cfg.GRPC.Address)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	return lis
 }
 
 // GetKafkaWriter

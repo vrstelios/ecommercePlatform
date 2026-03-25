@@ -2,10 +2,14 @@ package main
 
 import (
 	"context"
+	pb "ecommercePlatform/backend2/proto"
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v3"
 	"log"
 	"net"
@@ -223,6 +227,9 @@ type Gateway struct {
 	rateLimiters    sync.Map
 	CircuitBreakers map[string]*CircuitBreaker
 	transport       *http.Transport
+	// gRPC Client
+	productClient pb.ProductServiceClient
+	grpcConn      *grpc.ClientConn
 }
 
 func (g *Gateway) register(name string, wrapper MiddlewareWrapper) {
@@ -363,6 +370,11 @@ func (g *Gateway) correlationIdMiddleware(next http.Handler) http.Handler {
 // NewGateway creates a Gateway from the provided Config.
 // It builds the apiKeys map, registers built-in middleware and prepares reverse proxies for services.
 func NewGateway(cfg *Config) *Gateway {
+	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("Warning: Could not connect to gRPC backend: %v", err)
+	}
+
 	sharedTransport := &http.Transport{
 		MaxIdleConns:          20000,
 		MaxIdleConnsPerHost:   5000,
@@ -372,9 +384,12 @@ func NewGateway(cfg *Config) *Gateway {
 		ResponseHeaderTimeout: 30 * time.Second,
 	}
 	gw := &Gateway{
-		Ser:      make(map[string]*Service),
-		wrappers: make(map[string]MiddlewareWrapper),
-		apiKeys:  make(map[string]bool),
+		Ser:             make(map[string]*Service),
+		wrappers:        make(map[string]MiddlewareWrapper),
+		apiKeys:         make(map[string]bool),
+		CircuitBreakers: make(map[string]*CircuitBreaker),
+		grpcConn:        conn,
+		productClient:   pb.NewProductServiceClient(conn),
 	}
 
 	for _, key := range cfg.MiddlewareConfig.ApiKeyAuth.ValidKeys {
@@ -436,10 +451,52 @@ func (s *Service) NewProxy() *httputil.ReverseProxy {
 	return s.proxies[index]
 }
 
+func (g *Gateway) handleGrpcSearch(w http.ResponseWriter, r *http.Request) {
+	service := g.findService(r)
+	if service == nil {
+		http.Error(w, "gRPC client not initialized", http.StatusServiceUnavailable)
+		return
+	}
+
+	cb, ok := g.CircuitBreakers[service.Route]
+	if !ok {
+		cb = NewCircuitBreaker(service.CBFailureThreshold, service.CBResetTimeoutSeconds)
+		g.CircuitBreakers[service.Route] = cb
+	}
+
+	if !cb.AllowRequest() {
+		log.Printf("CB Open: Blocking gRPC call to %s", service.Name)
+		http.Error(w, "Service temporarily unavailable (CB Open)", http.StatusServiceUnavailable)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	query := r.URL.Query().Get("search")
+	resp, err := g.productClient.SearchProducts(ctx, &pb.SearchRequest{
+		Query: query,
+		Page:  1,
+		Limit: 10,
+	})
+	if err != nil {
+		log.Printf("gRPC Error: %v", err)
+		cb.Report(false)
+		http.Error(w, "Internal Service Error", http.StatusInternalServerError)
+		return
+	}
+
+	cb.Report(true)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
 // handleGateway is the main HTTP handler for the gateway.
 // It finds the target service for the request, wraps the service proxy with configured middleware (in reverse order),
 // and forwards the request to the service proxy. If no service is found it returns 404.
 func (g *Gateway) handleGateway(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Gateway received request for path: %s", r.URL.Path)
 	service := g.findService(r)
 	if service == nil {
 		log.Printf("No service found for the url %s", r.URL.Path)
@@ -447,7 +504,15 @@ func (g *Gateway) handleGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var curr http.Handler = service.NewProxy()
+	var curr http.Handler
+
+	// Specific case for gRPC Search
+	if r.URL.Path == "/product/products/v2" {
+		curr = http.HandlerFunc(g.handleGrpcSearch)
+	} else {
+		curr = service.NewProxy()
+	}
+
 	for i := len(service.Middleware) - 1; i >= 0; i-- {
 		middlewareName := service.Middleware[i]
 		middleware, ok := g.wrappers[middlewareName]

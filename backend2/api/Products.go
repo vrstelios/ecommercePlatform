@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"ecommercePlatform/backend2/models"
+	pb "ecommercePlatform/backend2/proto"
 	"encoding/json"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -150,4 +152,75 @@ func GetProductsElastic(ctx *gin.Context, es *elasticsearch.Client) {
 		"page":     page,
 		"limit":    limit,
 	})
+}
+
+type ProductServer struct {
+	pb.UnimplementedProductServiceServer
+	Es *elasticsearch.Client
+}
+
+func (s *ProductServer) SearchProducts(ctx context.Context, req *pb.SearchRequest) (*pb.SearchListResponse, error) {
+	log.Printf("gRPC Search Request: %s", req.GetQuery())
+	name := req.GetQuery()
+	page := req.GetPage()
+	limit := req.GetLimit()
+
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	from := (page - 1) * limit
+
+	query := map[string]interface{}{
+		"from": from,
+		"size": limit,
+		"query": map[string]interface{}{
+			"match_all": map[string]interface{}{},
+		},
+	}
+	if len(name) != 0 {
+		query = map[string]interface{}{
+			"query": map[string]interface{}{
+				"match": map[string]interface{}{
+					"name": name,
+				},
+			},
+		}
+	}
+
+	var buf bytes.Buffer
+	json.NewEncoder(&buf).Encode(query)
+
+	res, err := s.Es.Search(
+		s.Es.Search.WithContext(ctx),
+		s.Es.Search.WithIndex("products"),
+		s.Es.Search.WithBody(&buf),
+		s.Es.Search.WithTrackTotalHits(true),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var esRes ESResponse
+	json.NewDecoder(res.Body).Decode(&esRes)
+
+	var product []models.Products
+	for _, hit := range esRes.Hits.Hits {
+		product = append(product, hit.Source)
+	}
+
+	var grpcProducts []*pb.ProductResponse
+	for _, hit := range esRes.Hits.Hits {
+		grpcProducts = append(grpcProducts, &pb.ProductResponse{
+			Id:          hit.Source.Id,
+			Name:        hit.Source.Name,
+			Price:       hit.Source.Price,
+			Description: *hit.Source.Description,
+		})
+	}
+
+	return &pb.SearchListResponse{Products: grpcProducts, Total: int32(esRes.Hits.Total.Value)}, nil
 }

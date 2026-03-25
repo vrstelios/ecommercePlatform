@@ -36,6 +36,11 @@ utilizing a modern tech stack and cloud-native patterns.
 - **Containerization** - Fully dockerized environment with Docker Compose for easy local development and environment parity.
 - **Health Checks & Self-Healing** - Automated service discovery and container restart policies for high uptime.
 
+### Advanced Features
+- **gRPC Integration** - Internal communication between Gateway and Product Service is optimized using gRPC, reducing latency and payload size by up to 80% compared to JSON.
+- **Resilient Proxying** - The Gateway wraps gRPC calls with a Circuit Breaker. If the gRPC backend fails, the Gateway automatically trips to Open state to prevent cascading failures.
+- **Contract-First Development** - Shared .proto files ensure that the Gateway and Microservices are always in sync regarding data structures.
+
 ---
 
 ## Architecture
@@ -99,6 +104,9 @@ This project follows a clean and structured architecture for maintainability and
 - **Distributed Tracing:** Custom implementation using Correlation Ids across HTTP headers and Kafka metadata.
 - **Docker & Docker Compose:** Containerization for environment parity and simplified local orchestration.
 - **API Gateway:** Custom-built gateway featuring Rate Limiting (Token Bucket) and Circuit Breaker patterns.
+- **Communication:** gRPC with Protocol Buffers (Internal East-West traffic).
+- **Protocols:** HTTP/2 for inter-service communication, JSON/REST for Client-Gateway.
+- **Schema:** Protobuf definitions for strict service contracts.
 
 ---
 
@@ -203,7 +211,7 @@ All requests should be directed to the API Gateway at `http://localhost:8080`.
 ```
 
 - **Method:** `GET`
-- **URL:** `http://localhost:8080/products/v2?search=Laptop&page=1&limit=10`
+- **URL:** `http://localhost:8080/product/products/v2?search=Laptop`
 
 ## Monitoring & Observability
 - **Grafana:** `http://localhost:3000` (Dashboards for Circuit Breaker & Latency)

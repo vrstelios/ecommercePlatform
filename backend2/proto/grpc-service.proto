@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package product;
+
+option go_package = "./proto";
+
+service ProductService {
+  // A function which take a product
+  rpc SearchProducts(SearchRequest) returns (SearchListResponse) {}
+}
+
+message ProductResponse {
+  string id = 1;
+  string name = 2;
+  double price = 3;
+  string description = 4;
+}
+// What send
+message SearchRequest {
+  string query = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+// What take it
+message SearchListResponse {
+  repeated ProductResponse products = 1;
+  int32 total = 2;
+}

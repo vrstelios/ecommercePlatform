@@ -1,29 +1,29 @@
 {
-  "cassandra": {
-    "hosts": ["localhost"],
-    "keyspace": "ecommerce",
-    "port": 9042
-  },
-  "redis": {
-    "addr": "localhost:6379",
-    "password": "",
-    "db": 0
-  },
-  "elasticsearch": {
-    "addresses": ["http://localhost:9200"]
-  },
-  "kafka": {
-    "broker": "127.0.0.1:9092",
-    "topic_products": "product-updates",
-    "topic_payments": "payment-events"
-  },
   "database": {
-    "host": "localhost",
+    "host": "postgres",
     "port": 5432,
     "user": "postgres",
     "password": "postgres",
     "name": "postgres",
     "sslmode": "disable"
+  },
+  "kafka": {
+    "broker": "kafka:29092",
+    "topic_products": "product-updates",
+    "topic_payments": "payment-events"
+  },
+  "redis": {
+    "addr": "redis:6379",
+    "password": "",
+    "db": 0
+  },
+  "cassandra": {
+    "hosts": ["cassandra"],
+    "keyspace": "ecommerce",
+    "port": 9042
+  },
+  "elasticsearch": {
+    "addresses": ["http://elasticsearch:9200"]
   },
   "gRPC": {
     "network": "tcp",

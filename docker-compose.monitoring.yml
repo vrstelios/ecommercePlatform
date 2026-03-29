@@ -4,6 +4,56 @@ version: "3.9"
 # Run: docker-compose -f docker-compose.monitoring.yml up -d
 
 services:
+  cart-service:
+    build:
+      context: .
+      dockerfile: backend1/DockerFile1
+    restart: on-failure
+    environment:
+      - CONFIG_PATH=/config/config.json
+    volumes:
+      - ./config/config.json:/config/config.json
+    ports:
+      - "8081:8081"
+
+  product-service:
+    build:
+      context: .
+      dockerfile: backend2/DockerFile2
+    restart: on-failure
+    extra_hosts:
+      - "localhost:host-gateway"
+    environment:
+      - CONFIG_PATH=/config/config.json
+    volumes:
+      - ./config/config.json:/config/config.json
+    ports:
+      - "8082:8082"
+      - "50051:50051"
+
+  order-service:
+    build:
+      context: .
+      dockerfile: backend3/DockerFile3
+    restart: on-failure
+    environment:
+      - CONFIG_PATH=/config/config.json
+    volumes:
+      - ./config/config.json:/config/config.json
+    ports:
+      - "8083:8083"
+
+  gateway:
+    build:
+      context: .
+      dockerfile: DockerFile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - product-service
+      - cart-service
+      - order-service
+
   prometheus:
     image: prom/prometheus
     container_name: prometheus
@@ -65,14 +115,27 @@ services:
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
 volumes:
   cassandra_data:
   redis_data:
+  postgres_data:

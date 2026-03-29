@@ -13,9 +13,9 @@ import (
 )
 
 // Woker receives payment events from Kafka and finalizes orders by cleaning up Cassandra and Redis
-func StartPaymentWorker(session *gocql.Session, rdb *redis.Client, db *pgx.Conn) {
+func StartPaymentWorker(session *gocql.Session, rdb *redis.Client, db *pgx.Conn, broker string) {
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  []string{"127.0.0.1:9092"},
+		Brokers:  []string{broker},
 		Topic:    "payment-events",
 		GroupID:  "payment-finalizer-group",
 		MinBytes: 10e3,

@@ -1,0 +1,8 @@
+
+# Rub production Application with Dockerfile
+Clean docker run: docker system prune -f
+Up-Application run: docker-compose -f docker-compose.monitoring.yml up --build
+
+# Rub localhost Application with Dockerfile
+Run grafana: docker-compose -f docker-compose.monitoring.yml up -d grafana
+Run App: docker-compose -f docker-compose.monitoring.yml up -d

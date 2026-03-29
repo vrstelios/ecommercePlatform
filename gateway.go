@@ -370,10 +370,17 @@ func (g *Gateway) correlationIdMiddleware(next http.Handler) http.Handler {
 // NewGateway creates a Gateway from the provided Config.
 // It builds the apiKeys map, registers built-in middleware and prepares reverse proxies for services.
 func NewGateway(cfg *Config) *Gateway {
-	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial("product-service:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		conn, err = grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			log.Printf("Warning: Could not connect to gRPC backend: %v", err)
+		}
+	}
+	/*conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("Warning: Could not connect to gRPC backend: %v", err)
-	}
+	}*/
 
 	sharedTransport := &http.Transport{
 		MaxIdleConns:          20000,

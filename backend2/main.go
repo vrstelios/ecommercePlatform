@@ -6,6 +6,7 @@ import (
 	pb "ecommercePlatform/backend2/proto"
 	"ecommercePlatform/config"
 	"ecommercePlatform/utils"
+	"fmt"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -16,7 +17,10 @@ import (
 func main() {
 	cfg, err := config.LoadConfig(config.FilePath)
 	if err != nil {
-		log.Fatal(err)
+		cfg, err = config.LoadConfig("config/config-localHost.json")
+		if err != nil {
+			log.Fatalf("Failed to load config: %v", err)
+		}
 	}
 
 	// Connect to Postgres
@@ -29,6 +33,7 @@ func main() {
 		log.Fatalf("ES Client Error:  %s", err)
 	}
 
+	fmt.Println("DEBUG: Kafka Broker from config is:", cfg.Kafka.Broker)
 	// Start the background worker to sync products to Elasticsearch
 	go api.StartElasticSyncWorker(es, cfg.Kafka.Broker, "product-updates")
 
@@ -66,5 +71,6 @@ func main() {
 
 	logger.Info(`backend-product running on port 8082`)
 
-	router.Run("localhost:8082")
+	//router.Run("localhost:8082")
+	router.Run(":8082")
 }

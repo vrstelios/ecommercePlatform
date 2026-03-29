@@ -1,0 +1,22 @@
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+
+# Copy go.mod and sum from the root
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN go build -o /order-service ./backend3/main.go
+
+FROM alpine:latest
+WORKDIR /
+
+COPY --from=builder /order-service /order-service
+COPY --from=builder /app/config/config.json /config/config.json
+
+ENV CONFIG_PATH=/config/config.json
+
+EXPOSE 8083
+CMD ["/order-service"]

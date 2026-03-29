@@ -6,6 +6,17 @@ DROP TABLE IF EXISTS orders;
 DROP TABLE IF EXISTS carts;
 DROP TABLE IF EXISTS products;
 
+CREATE TABLE IF NOT EXISTS users (
+    id            UUID PRIMARY KEY,
+    name          TEXT NOT NULL,
+    email         TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO users (id, email, password_hash)
+VALUES ('dd376484-ae89-4f65-94b7-c0e06f156ab1', 'verros@test.com', '$2a$10$TxZ8mwo.sap2LxP5AqfsDuY0Nr4uQZGpuVNFZAq9EevDsvfeD3LXy')
+
 CREATE TABLE products (
     id          UUID PRIMARY KEY,
     name        TEXT NOT NULL,

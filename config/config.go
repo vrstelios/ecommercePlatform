@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const FilePath = "C:/Users/User/GolandProjects/ecommercePlatform/config/config.json"
+var FilePath = os.Getenv("CONFIG_PATH")
 
 type Config struct {
 	Cassandra struct {

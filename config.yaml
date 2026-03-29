@@ -10,7 +10,7 @@ services:
   - name: "cart-inventory-service"
     route_pattern: "/api"
     urls:
-      - "http://localhost:8081"
+      - "http://cart-service:8081"
     middleware:
       - "correlation_id"
       - "rate_limit"
@@ -22,7 +22,7 @@ services:
   - name: "product-service"
     route_pattern: "/product"
     urls:
-      - "http://localhost:8082"
+      - "http://product-service:8082"
     middleware:
       - "correlation_id"
       - "rate_limit"
@@ -34,7 +34,7 @@ services:
   - name: "order-service"
     route_pattern: "/order"
     urls:
-      - "http://localhost:8083"
+      - "http://order-service:8083"
     middleware:
       - "correlation_id"
       - "rate_limit"

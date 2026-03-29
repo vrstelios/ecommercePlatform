@@ -53,7 +53,7 @@ utilizing a modern tech stack and cloud-native patterns.
 
 ## Architecture
 
-![EcommercePlatform](EcommercePlatform.png)
+![EcommercePlatform](images/EcommercePlatform.png)
 
 This project follows a clean and structured architecture for maintainability and scalability.
 ```
@@ -100,7 +100,7 @@ This project follows a clean and structured architecture for maintainability and
 
 *(Schema files included in `/database` folder with schema & schema changes SQL.)*
 
-![EcommercePlatformDatabase.png](EcommercePlatformDatabase.png)
+![EcommercePlatformDatabase.png](images/EcommercePlatformDatabase.png)
 
 ---
 
@@ -239,7 +239,7 @@ To successfully interact with the API, the following headers are required (enfor
 ---
 
 # Resilience Test: Circuit Breaker in Action
-![Monitoring](Monitoring.png)
+![Monitoring](images/Monitoring.png)
 
 Dashboard (Queries)\
 A. Panel: Requests per Service (Time Series): `sum(rate(http_requests_counter[1m])) by (service)`\

@@ -1,0 +1,35 @@
+name: Go Multi-Service CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Build Cart Service
+      run: go build -v -o cart-service ./backend1
+
+    - name: Build Product Service
+      run: go build -v -o product-service ./backend2
+
+    - name: Build Order Service
+      run: go build -v -o order-service ./backend3
+
+    - name: Run Tests (Optional)
+      run: go test -v ./...

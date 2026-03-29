@@ -265,7 +265,7 @@ func (g *Gateway) metricsMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(recorder, r)
 		duration := time.Since(startTime).Seconds()
-		counter.WithLabelValues(r.Method, fmt.Sprintf("%s", recorder.statusCode), serviceName).Inc()
+		counter.WithLabelValues(r.Method, fmt.Sprintf("%d", recorder.statusCode), serviceName).Inc()
 		timer.WithLabelValues(r.Method, serviceName).Observe(duration)
 	})
 }

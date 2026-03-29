@@ -8,9 +8,7 @@ utilizing a modern tech stack and cloud-native patterns.
 
 ---
 
-# Scalable Microservices E-commerce Platform
-
-![Build Status](https://github.com/vrstelios/ecommercePlatform/tree/main/.github/workflows/ci.yml/badge.svg)
+![Build Status](https://github.com/vrstelios/ecommercePlatform/actions/workflows/ci.yml/badge.svg)
 
 ---
 

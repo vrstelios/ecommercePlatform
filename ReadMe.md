@@ -8,7 +8,7 @@ utilizing a modern tech stack and cloud-native patterns.
 
 ---
 
-![Build Status](https://github.com/vrstelios/ecommercePlatform/actions/workflows/ci.yml/badge.svg)
+![Build Status](https://github.com/vrstelios/ecommercePlatform/actions/workflows/main.yml/badge.svg)
 
 ---
 

@@ -8,6 +8,12 @@ utilizing a modern tech stack and cloud-native patterns.
 
 ---
 
+# Scalable Microservices E-commerce Platform
+
+![Build Status](https://github.com/vrstelios/ecommercePlatform/tree/main/.github/workflows/ci.yml/badge.svg)
+
+---
+
 ## Features
 
 ### Core Functionality
@@ -41,6 +47,10 @@ utilizing a modern tech stack and cloud-native patterns.
 - **Resilient Proxying** - The Gateway wraps gRPC calls with a Circuit Breaker. If the gRPC backend fails, the Gateway automatically trips to Open state to prevent cascading failures.
 - **Contract-First Development** - Shared .proto files ensure that the Gateway and Microservices are always in sync regarding data structures.
 
+#### Continuous Integration & Quality Assurance
+- **Automated CI Pipeline** - GitHub Actions workflow that triggers on every push/PR to validate code integrity via `go build` and `go test`.
+- **Dependency Tracking** - Automated `go.sum` validation ensuring secure and reproducible builds across different environments.
+
 ---
 
 ## Architecture
@@ -50,24 +60,30 @@ utilizing a modern tech stack and cloud-native patterns.
 This project follows a clean and structured architecture for maintainability and scalability.
 ```
 .
+├── .github/workflows/       # CI/CD Orchestration
+│   └── main.yml             # Automated Build & Test pipeline
 ├── backend1/                # Cart & Inventory Service (Cassandra & Redis)
 │   ├── api/                 # HTTP Handlers for cart operations & inventory logic
 │   ├── models/              # Data structures for Cart and Inventory entities
+│   ├── Dockerfile1          # Specialized build for Service 1
 │   ├── main.go              # Entry point for Service 1 (Port 8081)
 │   └── schema_cassandra.sql # Database schema specifically for Cassandra
 ├── backend2/                # Product Service (Elasticsearch Sync)
 │   ├── api/                 # Handlers for Product CRUD & Search logic
 │   │   └── sync_worker.go   # Kafka consumer that syncs products to Elasticsearch
 │   ├── models/              # Product data models
+│   ├── Dockerfile2          # Specialized build for Service 2
 │   └── main.go              # Entry point for Service 2 (Port 8082)
 ├── backend3/                # Order & Payment Service (Kafka & PostgreSQL)
 │   ├── api/                 # Handlers for Checkout and Payment processing
 │   │   └── sync_worker.go   # Worker for finalizing orders and cleaning up cache
 │   ├── models/              # Order and Payment data models
+│   ├── Dockerfile3          # Specialized build for Service 3
 │   └── main.go              # Entry point for Service 3 (Port 8083)
 ├── config/                  # Shared configuration management
 │   ├── config.go            # Logic for loading environments and database connections
-│   └── config.json          # Static configuration values (DB credentials, etc.)
+│   ├── config-localHost     # Static configuration values (DB credentials, etc.) for localhost use
+│   └── config.json          # Static configuration values (DB credentials, etc.) for docker use
 ├── database/                # Global database management
 │   ├── schema.sql           # Main PostgreSQL schema (Source of Truth)
 │   ├── schema-changes.sql   # Migration scripts and history
@@ -124,33 +140,32 @@ This project follows a clean and structured architecture for maintainability and
 
 ---
 
-## Installation
+## Installation & Setup
 
-1. Clone the repository:
+### 1. The "One-Command" Start (Recommended)
+The entire platform, including all 3 microservices, the API Gateway, and the full infrastructure stack, is containerized.
+
 ```bash
-git clone https://github.com/youruser/ecommerce-platform.git
-cd ecommerce-platform
+# Clone the repository
+git clone [https://github.com/vrstelios/ecommercePlatform.git](https://github.com/vrstelios/ecommercePlatform.git)
+cd ecommercePlatform
+
+# Launch all services and infrastructure
+docker-compose up --build
 ```
 
-2. Spin up the infrastructure:
+### 2. Database Schema Initialization
+Once the containers are up and running, you need to initialize the database schemas:
+For Cassandra (Cart & Inventory):
 ```bash
-docker-compose up -d
+docker exec -it cassandra cqlsh -f backend1/schema_cassandra.sql
+```
+For PostgreSQL (Orders & Payments):
+```bash
+docker exec -i postgres psql -U postgres -d postgres < database/schema-shanges.sql
 ```
 
-3. Database Setup: 
-Import the schema using
-```bash
-psql -h localhost -U user -d dbname -f database/schema.sql
-```
-
-4. Run the Microservices:
-Open 4 separate terminals and run:
-```bash
-go run backend1/main.go  # Cart & Inventory (Port 8081)
-go run backend2/main.go  # Product Service (Port 8082)
-go run backend3/main.go  # Order Service (Port 8083)
-go run gateway.go        # API Gateway (Port 8080)
-```
+Set up the PostgreSQL and Cassandra tables for the Docker images you’ve built
 
 ## API Endpoints
 All requests should be directed to the API Gateway at `http://localhost:8080`.

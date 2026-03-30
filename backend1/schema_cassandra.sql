@@ -1,8 +1,9 @@
 docker exec -it cassandra cqlsh
-USE ecommerce;
 
 CREATE KEYSPACE IF NOT EXISTS ecommerce
 WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+
+USE ecommerce;
 
 CREATE TABLE inventory_items (
     product_id text PRIMARY KEY,

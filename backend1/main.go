@@ -72,6 +72,5 @@ func main() {
 
 	logger.Info(`backend-cart&inventory running on port 8081`)
 
-	//router.Run("localhost:8081")
 	router.Run(":8081")
 }

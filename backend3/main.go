@@ -51,6 +51,5 @@ func main() {
 
 	logger.Info(`backend-order running on port 8083`)
 
-	//router.Run("localhost:8083")
 	router.Run(":8083")
 }

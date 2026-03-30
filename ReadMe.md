@@ -149,7 +149,7 @@ git clone [https://github.com/vrstelios/ecommercePlatform.git](https://github.co
 cd ecommercePlatform
 
 # Launch all services and infrastructure
-docker-compose up --build
+docker compose -f docker-compose.monitoring.yml up --build
 ```
 
 ### 2. Database Schema Initialization

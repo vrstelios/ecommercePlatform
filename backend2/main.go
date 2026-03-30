@@ -71,6 +71,5 @@ func main() {
 
 	logger.Info(`backend-product running on port 8082`)
 
-	//router.Run("localhost:8082")
 	router.Run(":8082")
 }

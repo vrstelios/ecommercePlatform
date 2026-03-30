@@ -5,6 +5,7 @@ go 1.24.7
 require (
 	github.com/elastic/go-elasticsearch/v8 v8.19.3
 	github.com/gin-gonic/gin v1.11.0
+	github.com/go-playground/assert/v2 v2.2.0
 	github.com/gocql/gocql v1.7.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.8.0

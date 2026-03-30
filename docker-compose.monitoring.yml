@@ -1,7 +1,6 @@
 version: "3.9"
 
-# Run: docker-compose -f docker-compose.monitoring.yml up -d grafana
-# Run: docker-compose -f docker-compose.monitoring.yml up -d
+# Run: docker compose -f docker-compose.monitoring.yml up --build
 
 services:
   cart-service:

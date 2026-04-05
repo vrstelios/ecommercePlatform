@@ -1,4 +1,4 @@
-name: Go Multi-Service CI
+name: CI/CD Pipeline
 
 on:
   push:

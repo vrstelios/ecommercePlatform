@@ -110,15 +110,18 @@ jobs:
       # --------------------------------------------------------
       # STAGE 3: Start and Wait Microservices
       # --------------------------------------------------------
-
       - name: Wait for microservices (Gateway + 3 backends)
         run: |
-          declare -A services=(
-            ["Gateway"]="8080/metrics"
-            ["Cart Service"]="8081/health"
-            ["Product Service"]="8082/health"
-            ["Order Service"]="8083/health"
-          )
+          for port in 8080 8081 8082 8083; do
+            for i in $(seq 1 30); do
+              if nc -z localhost $port; then
+                echo "Port $port is open"
+                break
+              fi
+              [ $i -eq 30 ] && echo "Timeout waiting for port $port" && exit 1
+              sleep 4
+            done
+          done
 
           for name in "${!services[@]}"; do
             endpoint="${services[$name]}"
@@ -139,7 +142,6 @@ jobs:
       # --------------------------------------------------------
       # STAGE 4: E2E Business Flow Tests
       # --------------------------------------------------------
-
       # STEP 1: Create Product
       - name: "E2E Step 1/6 — Create Product"
         id: create_product
@@ -336,7 +338,7 @@ jobs:
           fi
 
       # --------------------------------------------------------
-      # STAGE 4: Inventory Verification
+      # STAGE 5: Inventory Verification
       # --------------------------------------------------------
       - name: "E2E Verify — Inventory updated after order"
         run: |
@@ -366,7 +368,7 @@ jobs:
           fi
 
       # --------------------------------------------------------
-      # STAGE 5: Gateway Health Checks
+      # STAGE 6: Gateway Health Checks
       # --------------------------------------------------------
       - name: "Gateway — Verify rate limiter returns 429"
         run: |
@@ -424,7 +426,7 @@ jobs:
           fi
 
       # --------------------------------------------------------
-      # STAGE 6: Prometheus Metrics Check
+      # STAGE 7: Prometheus Metrics Check
       # --------------------------------------------------------
       - name: "Observability — Verify Prometheus metrics"
         run: |

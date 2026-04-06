@@ -27,7 +27,7 @@ jobs:
       - name: Start full stack
         run: |
           docker compose -f docker-compose.monitoring.yml up -d --build
-        timeout-minutes: 10
+        timeout-minutes: 5
 
       # Any service have your health check.
       - name: Wait for infrastructure (Kafka, Redis, Cassandra, ES, Postgres)
@@ -66,24 +66,50 @@ jobs:
 
           # Kafka
           for i in $(seq 1 30); do
-            echo "Checking Kafka connection on localhost:29092 (Attempt $i)..."
-            
             if docker exec kafka nc -z localhost 29092; then
-              echo "Kafka port is open!"
               sleep 10
-              echo "Kafka is ready for traffic!"
+              echo "Kafka ready"
               break
             fi
             
             if [ $i -eq 30 ]; then
-              echo "Kafka timeout - Still showing logs for safety:"
               docker logs kafka | tail -n 20
               exit 1
             fi
             sleep 10
           done
+          
+          # Cassandra
+          for i in $(seq 1 20); do
+            if docker exec $(docker ps -qf "name=cassandra") \
+              cqlsh -e "DESCRIBE KEYSPACES" > /dev/null 2>&1; then
+              echo "Cassandra cqlsh ready"
+              break
+            fi
+            [ $i -eq 20 ] && echo "Cassandra not ready" && exit 1
+            sleep 5
+          done
 
           echo "All infrastructure is ready"
+
+      # --------------------------------------------------------
+      # STAGE 2: Database Schema Initialization
+      # --------------------------------------------------------
+      - name: Initialize PostgreSQL schema
+        run: |
+          docker exec -i $(docker ps -qf "name=postgres") \
+            psql -U postgres -d postgres < database/schema_changes.sql
+          echo "PostgreSQL schema initialized"
+
+      - name: Initialize Cassandra schema
+        run: |
+          docker exec -i $(docker ps -qf "name=cassandra") \
+            cqlsh < backend1/schema_cassandra.sql
+          echo "Cassandra schema initialized"
+
+      # --------------------------------------------------------
+      # STAGE 3: Start and Wait Microservices
+      # --------------------------------------------------------
 
       - name: Wait for microservices (Gateway + 3 backends)
         run: |
@@ -111,32 +137,7 @@ jobs:
           done
 
       # --------------------------------------------------------
-      # STAGE 2: Database Schema Initialization
-      # --------------------------------------------------------
-      - name: Initialize PostgreSQL schema
-        run: |
-          docker exec -i $(docker ps -qf "name=postgres") \
-            psql -U postgres -d postgres < database/schema_changes.sql
-          echo "PostgreSQL schema initialized"
-
-      - name: Initialize Cassandra schema
-        run: |
-          for i in $(seq 1 20); do
-            if docker exec $(docker ps -qf "name=cassandra") \
-              cqlsh -e "DESCRIBE KEYSPACES" > /dev/null 2>&1; then
-              echo "Cassandra cqlsh ready"
-              break
-            fi
-            [ $i -eq 20 ] && echo "Cassandra not ready" && exit 1
-            sleep 5
-          done
-
-          docker exec -i $(docker ps -qf "name=cassandra") \
-            cqlsh < backend1/schema_cassandra.sql
-          echo "Cassandra schema initialized"
-
-      # --------------------------------------------------------
-      # STAGE 3: E2E Business Flow Tests
+      # STAGE 4: E2E Business Flow Tests
       # --------------------------------------------------------
 
       # STEP 1: Create Product

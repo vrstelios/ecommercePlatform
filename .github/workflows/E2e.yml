@@ -112,30 +112,30 @@ jobs:
       # --------------------------------------------------------
       - name: Wait for microservices (Gateway + 3 backends)
         run: |
-          for port in 8080 8081 8082 8083; do
-            for i in $(seq 1 30); do
-              if nc -z localhost $port; then
-                echo "Port $port is open"
-                break
-              fi
-              [ $i -eq 30 ] && echo "Timeout waiting for port $port" && exit 1
-              sleep 4
-            done
-          done
+          declare -A services=(
+            ["Gateway"]="8080/metrics"
+            ["Cart Service"]="8081/api/cart/items/1"   
+            ["Product Service"]="8082/api/products"     
+            ["Order Service"]="8083/api/orders/1"     
+          )
 
           for name in "${!services[@]}"; do
             endpoint="${services[$name]}"
-            echo "Waiting for $name..."
-            for i in $(seq 1 30); do
-              if curl -sf \
-                -H "X-API-KEY: abc-123" \
-                "http://localhost:$endpoint" > /dev/null 2>&1; then
-                echo "$name is up"
+            echo "Waiting for $name at $endpoint..."
+            
+            for i in $(seq 1 20); do
+              if curl -sf -H "X-API-KEY: abc-123" "http://localhost:$endpoint" > /dev/null 2>&1; then
+                echo "$name is UP and responding!"
                 break
               fi
-              [ $i -eq 30 ] && echo "$name timeout" && \
-                docker compose -f docker-compose.monitoring.yml logs && exit 1
-              sleep 4
+              
+              if [ $i -eq 20 ]; then
+                echo " $name TIMEOUT!"
+                docker compose -f docker-compose.monitoring.yml logs
+                exit 1
+              fi
+              echo "Retrying $name... ($i/20)"
+              sleep 5
             done
           done
 

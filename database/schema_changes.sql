@@ -1,4 +1,4 @@
-docker exec -it postgres psql -U postgres
+--docker exec -it postgres psql -U postgres
 
 CREATE TABLE IF NOT EXISTS users (
     id            UUID PRIMARY KEY,

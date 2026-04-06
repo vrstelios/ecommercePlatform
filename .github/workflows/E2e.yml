@@ -66,12 +66,16 @@ jobs:
 
           # Kafka
           for i in $(seq 1 30); do
-            if docker exec $(docker ps -qf "name=kafka") kafka-topics.sh \
-              --bootstrap-server localhost:9092 --list > /dev/null 2>&1; then
-              echo "Kafka ready"
+            echo "Checking Kafka (Attempt $i)..."
+            if docker exec kafka kafka-topics.sh --bootstrap-server localhost:29092 --list > /dev/null 2>&1; then
+              echo "Kafka ready!"
               break
             fi
-            [ $i -eq 30 ] && echo "Kafka timeout" && exit 1
+            if [ $i -eq 30 ]; then
+              echo "Kafka timeout - Showing logs for debugging:"
+              docker logs kafka | tail -n 20
+              exit 1
+            fi
             sleep 10
           done
 

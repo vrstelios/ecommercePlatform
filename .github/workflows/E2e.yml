@@ -61,7 +61,7 @@ jobs:
               break
             fi
             [ $i -eq 30 ] && echo "Elasticsearch timeout" && exit 1
-            sleep 5
+            sleep 15
           done
 
           # Kafka
@@ -72,7 +72,7 @@ jobs:
               break
             fi
             [ $i -eq 30 ] && echo "Kafka timeout" && exit 1
-            sleep 5
+            sleep 10
           done
 
           echo "All infrastructure is ready"

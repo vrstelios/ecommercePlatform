@@ -12,10 +12,9 @@ services:
     urls:
       - "http://cart-service:8081"
     middleware:
-      - "correlation_id"
       - "rate_limit"
-      - "metrics"
       - "auth_apikey"
+      - "metrics"
     rate_limit_rps: 2
     rate_limit_burst: 3
 
@@ -24,10 +23,9 @@ services:
     urls:
       - "http://product-service:8082"
     middleware:
-      - "correlation_id"
       - "rate_limit"
-      - "metrics"
       - "auth_apikey"
+      - "metrics"
     rate_limit_rps: 2
     rate_limit_burst: 3
 
@@ -36,9 +34,8 @@ services:
     urls:
       - "http://order-service:8083"
     middleware:
-      - "correlation_id"
       - "rate_limit"
-      - "metrics"
       - "auth_apikey"
+      - "metrics"
     rate_limit_rps: 2
     rate_limit_burst: 3

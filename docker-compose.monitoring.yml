@@ -1,5 +1,6 @@
 version: "3.9"
 
+# Run: docker compose -f docker-compose.monitoring.yml down
 # Run: docker compose -f docker-compose.monitoring.yml up --build
 
 services:

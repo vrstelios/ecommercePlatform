@@ -357,7 +357,7 @@ func (g *Gateway) circuitBreakerMiddleware(next http.Handler) http.Handler {
 func (g *Gateway) correlationIdMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		corId := r.Header.Get("X-Correlation-Id")
-		if len(corId) == 0 {
+		if corId == "" {
 			corId = uuid.NewString()
 		}
 
@@ -434,6 +434,17 @@ func NewGateway(cfg *Config) *Gateway {
 			currSer.proxies = append(currSer.proxies, proxy)
 		}
 		gw.Ser[currSer.Route] = currSer
+	}
+
+	for _, service := range cfg.Services {
+		// Initialize Circuit Breaker Gauge στο 0 (Closed)
+		cbState.WithLabelValues(service.Name).Set(0)
+		rateLimited.WithLabelValues(service.Name, "token_bucket").Add(0)
+
+		counter.WithLabelValues("GET", "200", service.Name).Add(0)
+		counter.WithLabelValues("GET", "401", service.Name).Add(0)
+
+		timer.WithLabelValues("GET", service.Name).Observe(0)
 	}
 
 	return gw
@@ -550,11 +561,12 @@ func main() {
 
 	gw := NewGateway(cfg)
 	mux := http.NewServeMux()
-	mux.Handle("/", http.HandlerFunc(gw.handleGateway))
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/", http.HandlerFunc(gw.handleGateway))
+	finalHandler := gw.correlationIdMiddleware(mux)
 	server := &http.Server{
 		Addr:    cfg.Port,
-		Handler: mux,
+		Handler: finalHandler,
 	}
 
 	err := server.ListenAndServe()

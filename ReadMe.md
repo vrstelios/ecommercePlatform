@@ -84,7 +84,11 @@ This project follows a clean and structured architecture for maintainability and
 │   └── config.json          # Static configuration values (DB credentials, etc.) for docker use
 ├── database/                # Global database management
 │   ├── schema.sql           # Main PostgreSQL schema (Source of Truth)
-│   ├── schema-changes.sql   # Migration scripts and history
+│   └── schema-changes.sql   # Migration scripts and history
+├── images/ 
+├── test/ 
+│   └── e2e_test.go         # E2E test suite simulating real user interactions across the entire platform
+├── utils/ 
 │   └── utils.go             # Helper functions for database operations
 ├── config.yaml              # Gateway & Middleware configuration (Routes, Rate Limits)
 ├── docker-compose.yml       # Infrastructure orchestration (Kafka, DBs, ES, Redis)

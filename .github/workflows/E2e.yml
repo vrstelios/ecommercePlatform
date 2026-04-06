@@ -66,20 +66,21 @@ jobs:
 
           # Kafka
           for i in $(seq 1 30); do
-            echo "Checking Kafka (Attempt $i)..."
-            if docker exec kafka kafka-broker-api-versions.sh --bootstrap-server localhost:29092 > /dev/null 2>&1; then
-              echo "Kafka Broker is responding to API requests!"
-              
-              sleep 5
-              echo "Kafka is ready!"
+            echo "Checking Kafka connection on localhost:29092 (Attempt $i)..."
+            
+            if docker exec kafka nc -z localhost 29092; then
+              echo "Kafka port is open!"
+              sleep 10
+              echo "Kafka is ready for traffic!"
               break
             fi
+            
             if [ $i -eq 30 ]; then
-              echo "Kafka timeout - Last logs:"
+              echo "Kafka timeout - Still showing logs for safety:"
               docker logs kafka | tail -n 20
               exit 1
             fi
-            sleep 5
+            sleep 10
           done
 
           echo "All infrastructure is ready"

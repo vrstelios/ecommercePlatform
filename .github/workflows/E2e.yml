@@ -26,7 +26,8 @@ jobs:
       # --------------------------------------------------------
       - name: Start full stack
         run: |
-          docker compose -f docker-compose.monitoring.yml up -d --build
+          # docker compose -f docker-compose.monitoring.yml up -d --build
+          docker compose -f docker-compose.monitoring.yml up -d postgres redis elasticsearch kafka zookeeper cassandra
         timeout-minutes: 5
 
       # Any service have your health check.
@@ -112,11 +113,13 @@ jobs:
       # --------------------------------------------------------
       - name: Wait for microservices (Gateway + 3 backends)
         run: |
+          docker compose -f docker-compose.monitoring.yml up -d --build gateway backend1 backend2 backend3
+          
           declare -A services=(
             ["Gateway"]="8080/metrics"
-            ["Cart Service"]="8081/api/cart/items/1"   
+            ["Cart Service"]="8081/api/cart/items"   
             ["Product Service"]="8082/api/products"     
-            ["Order Service"]="8083/api/orders/1"     
+            ["Order Service"]="8083/api/orders/create/7f7703a6-7847-4610-9104-2a902287e857"     
           )
 
           for name in "${!services[@]}"; do

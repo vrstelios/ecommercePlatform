@@ -290,29 +290,32 @@ jobs:
         run: |
           echo "Processing payment for order $ORDER_ID..."
 
-          response=$(curl -s -w "\n%{http_code}" \
-            -X POST "http://localhost:8080/orders/$CART_ID/pay" \
-            -H "Content-Type: application/json" \
-            -H "X-API-KEY: abc-123" \
-            -d "{
-              \"orderId\": \"$ORDER_ID\",
-              \"userId\": \"dd376484-ae89-4f65-94b7-c0e06f156ab1\",
-              \"amount\": 2400.00,
-              \"paymentMethod\": \"credit_card\"
-            }")
-
-          http_code=$(echo "$response" | tail -1)
-          body=$(echo "$response" | head -1)
-
-          echo "Response: $body"
-          echo "HTTP Status: $http_code"
-
-          if [[ "$http_code" != "200" && "$http_code" != "201" ]]; then
-            echo "Payment failed with status $http_code"
-            exit 1
-          fi
-
-          echo "Payment processed successfully"
+          for i in {1..3}; do
+            response=$(curl -s -w "\n%{http_code}" \
+              -X POST "http://localhost:8080/orders/$CART_ID/pay" \
+              -H "Content-Type: application/json" \
+              -H "X-API-KEY: abc-123" \
+              -d "{
+                \"orderId\": \"$ORDER_ID\",
+                \"userId\": \"dd376484-ae89-4f65-94b7-c0e06f156ab1\",
+                \"amount\": 2400.00,
+                \"paymentMethod\": \"credit_card\"
+              }")
+  
+            http_code=$(echo "$response" | tail -n 1)
+            body=$(echo "$response" | head -n -1)
+  
+            if [[ "$http_code" == "200" || "$http_code" == "201" ]]; then
+              echo "Payment processed successfully on attempt $i"
+              exit 0
+            fi
+            
+            echo "Attempt $i failed (Status $http_code). Retrying in 5s..."
+            sleep 5
+          done
+  
+          echo "Payment failed after 3 attempts. Last response: $body"
+          exit 1
 
       # STEP 6: Search Product (gRPC path)
       # gRPC path: Gateway → backend2 → Elasticsearch

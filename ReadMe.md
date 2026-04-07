@@ -40,6 +40,10 @@ utilizing a modern tech stack and cloud-native patterns.
 #### DevOps & Infrastructure
 - **Containerization** - Fully dockerized environment with Docker Compose for easy local development and environment parity.
 - **Health Checks & Self-Healing** - Automated service discovery and container restart policies for high uptime.
+- **Infrastructure Spin-up:** Automated deployment of 7+ containers (Postgres, Kafka, Zookeeper, Redis, Cassandra, ES).
+- **Health Verification:** Smart wait-scripts ensure all databases are ready before tests start.
+- **Schema Auto-Migration:** Automated SQL injection for both Relational and NoSQL databases.
+- **Race Detection:** Tests are executed to catch concurrency issues in the Go microservices.
 
 ### Advanced Features
 - **gRPC Integration** - Internal communication between Gateway and Product Service is optimized using gRPC, reducing latency and payload size by up to 80% compared to JSON.
@@ -58,13 +62,6 @@ We have implemented a comprehensive E2E suite (`test/e2e_test.go`) that simulate
 4. **Order Lifecycle:** Creates a 'pending' order.
 5. **Asynchronous Payment:** Processes payment via Kafka event-streaming.
 6. **Data Consistency:** Verifies inventory decrement and Elasticsearch synchronization.
-
-### Automated CI Pipeline
-The project uses GitHub Actions (`.github/workflows/E2e.yml`) to orchestrate a full-scale integration environment on every push:
-- **Infrastructure Spin-up:** Automated deployment of 7+ containers (Postgres, Kafka, Zookeeper, Redis, Cassandra, ES).
-- **Health Verification:** Smart wait-scripts ensure all databases are ready before tests start.
-- **Schema Auto-Migration:** Automated SQL injection for both Relational and NoSQL databases.
-- **Race Detection:** Tests are executed to catch concurrency issues in the Go microservices.
 
 ---
 

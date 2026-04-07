@@ -179,7 +179,6 @@ jobs:
             exit 1
           fi
 
-          # Εξάγει το product ID από το response για τα επόμενα steps
           PRODUCT_ID=$(echo "$body" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
           if [ -z "$PRODUCT_ID" ]; then
             # Fallback: χρησιμοποίησε το γνωστό UUID από το README
@@ -256,17 +255,17 @@ jobs:
           response=$(curl -s -w "\n%{http_code}" \
             -X POST "http://localhost:8080/api/orders/create/$CART_ID" \
             -H "Content-Type: application/json" \
-            -H "X-API-KEY: abc-123" \ 
+            -H "X-API-KEY: abc-123" \
             -d "{
               \"cartId\": \"$CART_ID\",
               \"productId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",
               \"quantity\": 2
             }")
 
-          http_code=$(echo "$response" | tail -1)
-          body=$(echo "$response" | head -1)
+          http_code=$(echo "$response" | tail -n 1)
+          body=$(echo "$response" | head -n -1)
 
-          echo "Response: $body"
+          echo "Response Body: $body"
           echo "HTTP Status: $http_code"
 
           if [[ "$http_code" != "200" && "$http_code" != "201" ]]; then
@@ -274,15 +273,15 @@ jobs:
             exit 1
           fi
 
-          ORDER_ID=$(echo "$body" | python3 -c "import sys, json; print(json.load(sys.stdin).get('order_id', ''))")
-          STATUS=$(echo "$body" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+          ORDER_ID=$(echo "$body" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('order_id', ''))")
 
           if [ -z "$ORDER_ID" ]; then
             echo "Could not extract order_id from response!"
             exit 1
           fi
-  
+
           echo "Order created — ID: $ORDER_ID"
+
           echo "ORDER_ID=$ORDER_ID" >> $GITHUB_ENV
           echo "CART_ID=$CART_ID" >> $GITHUB_ENV
 

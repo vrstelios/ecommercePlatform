@@ -102,7 +102,7 @@ This project follows a clean and structured architecture for maintainability and
 │   └── schema-changes.sql   # Migration scripts and history
 ├── images/ 
 ├── test/ 
-│   └── e2e_test.go         # E2E test suite simulating real user interactions across the entire platform
+│   └── e2e_test.go          # E2E test suite simulating real user interactions across the entire platform
 ├── test/ 
 │   └── e2e_test.go          # E2E test suite simulating real user interactions
 ├── config.yaml              # Gateway & Middleware configuration (Routes, Rate Limits)

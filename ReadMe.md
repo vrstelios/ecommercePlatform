@@ -9,6 +9,7 @@ utilizing a modern tech stack and cloud-native patterns.
 ---
 
 ![Build Status](https://github.com/vrstelios/ecommercePlatform/actions/workflows/main.yml/badge.svg)
+![E2E Status](https://github.com/vrstelios/ecommercePlatform/actions/workflows/E2e.yml/badge.svg)
 
 ---
 
@@ -49,6 +50,22 @@ utilizing a modern tech stack and cloud-native patterns.
 - **Automated CI Pipeline** - GitHub Actions workflow that triggers on every push/PR to validate code integrity via `go build` and `go test`.
 - **Dependency Tracking** - Automated `go.sum` validation ensuring secure and reproducible builds across different environments.
 
+### End-to-End (E2E) Testing
+We have implemented a comprehensive E2E suite (`test/e2e_test.go`) that simulates a complete user journey:
+1. **Product Creation:** Verifies gRPC/REST connectivity.
+2. **Inventory Management:** Sets stock levels in PostgreSQL.
+3. **Cart Operations:** Persists data in Redis/Cassandra.
+4. **Order Lifecycle:** Creates a 'pending' order.
+5. **Asynchronous Payment:** Processes payment via Kafka event-streaming.
+6. **Data Consistency:** Verifies inventory decrement and Elasticsearch synchronization.
+
+### Automated CI Pipeline
+The project uses GitHub Actions (`.github/workflows/E2e.yml`) to orchestrate a full-scale integration environment on every push:
+- **Infrastructure Spin-up:** Automated deployment of 7+ containers (Postgres, Kafka, Zookeeper, Redis, Cassandra, ES).
+- **Health Verification:** Smart wait-scripts ensure all databases are ready before tests start.
+- **Schema Auto-Migration:** Automated SQL injection for both Relational and NoSQL databases.
+- **Race Detection:** Tests are executed to catch concurrency issues in the Go microservices.
+
 ---
 
 ## Architecture
@@ -59,7 +76,8 @@ This project follows a clean and structured architecture for maintainability and
 ```
 .
 ├── .github/workflows/       # CI/CD Orchestration
-│   └── main.yml             # Automated Build & Test pipeline
+│   ├── main.yml             # Unit Tests & Build pipeline
+│   └── E2e.yml              # Full Stack E2E Integration pipeline (The "Heavy" Test)
 ├── backend1/                # Cart & Inventory Service (Cassandra & Redis)
 │   ├── api/                 # HTTP Handlers for cart operations & inventory logic
 │   ├── models/              # Data structures for Cart and Inventory entities
@@ -88,8 +106,8 @@ This project follows a clean and structured architecture for maintainability and
 ├── images/ 
 ├── test/ 
 │   └── e2e_test.go         # E2E test suite simulating real user interactions across the entire platform
-├── utils/ 
-│   └── utils.go             # Helper functions for database operations
+├── test/ 
+│   └── e2e_test.go          # E2E test suite simulating real user interactions
 ├── config.yaml              # Gateway & Middleware configuration (Routes, Rate Limits)
 ├── docker-compose.yml       # Infrastructure orchestration (Kafka, DBs, ES, Redis)
 ├── gateway.go               # The API Gateway (Reverse Proxy, Circuit Breaker, Auth)
@@ -169,10 +187,32 @@ docker exec -i postgres psql -U postgres -d postgres < database/schema-shanges.s
 
 Set up the PostgreSQL and Cassandra tables for the Docker images you’ve built
 
+### 3. Running E2E Tests Locally
+If you have the infrastructure running via Docker, you can execute the full test suite:
+```bash
+# Run all tests including the E2E suite
+go test -v ./test/e2e_test.go
+```
+
 ## API Endpoints
 All requests should be directed to the API Gateway at `http://localhost:8080`.
 
 # API Workflow 
+- **Method:** `POST`
+- **URL:** `http://localhost:8080/products`
+- **Body:**
+```json
+{
+  "name": "Laptop",
+  "price": 1200.00,
+  "description": "High performance laptop MacookPro"
+}
+```
+
+- **Method:** `GET`
+- **URL:** `http://localhost:8080/product/products/v2?search=Laptop`
+
+
 - **Method:** `POST`
 - **URL:** `http://localhost:8080/api/inventory`
 - **Body:**
@@ -216,19 +256,6 @@ All requests should be directed to the API Gateway at `http://localhost:8080`.
 }
 ```
 
-- **Method:** `POST`
-- **URL:** `http://localhost:8080/products`
-- **Body:**
-```json
-{
-  "name": "Laptop",
-  "price": 1200.00,
-  "description": "High performance laptop MacookPro"
-}
-```
-
-- **Method:** `GET`
-- **URL:** `http://localhost:8080/product/products/v2?search=Laptop`
 
 ## Monitoring & Observability
 - **Grafana:** `http://localhost:3000` (Dashboards for Circuit Breaker & Latency)

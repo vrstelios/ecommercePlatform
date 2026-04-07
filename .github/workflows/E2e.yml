@@ -118,7 +118,7 @@ jobs:
           declare -A services=(
             ["Gateway"]="8080/metrics"
             ["Cart Service"]="8081/api/cart/items/7f7703a6-7847-4610-9104-2a902287e857"
-            ["Product Service"]="8082/products"    
+
             ["Order Service"]="8083/orders/7f7703a6-7847-4610-9104-2a902287e857/pay"     
           )
 

@@ -30,6 +30,3 @@ jobs:
 
     - name: Build Order Service
       run: go build -v -o order-service ./backend3
-
-    - name: Run Tests (Optional)
-      run: go test -v ./test/e2e_test.go

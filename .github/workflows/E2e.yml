@@ -250,12 +250,18 @@ jobs:
       # STEP 4: Create Order from cart
       - name: "E2E Step 4/6 — Create Order"
         run: |
+          CART_ID="7f7703a6-7847-4610-9104-2a902287e857"
           echo "Creating order from cart $CART_ID..."
 
-          response=$(curl -sf -w "\n%{http_code}" \
+          response=$(curl -s -w "\n%{http_code}" \
             -X POST "http://localhost:8080/api/orders/create/$CART_ID" \
             -H "Content-Type: application/json" \
-            -H "X-API-KEY: abc-123")
+            -H "X-API-KEY: abc-123" \ 
+            -d "{
+              \"cartId\": \"$CART_ID\",
+              \"productId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",
+              \"quantity\": 2
+            }")
 
           http_code=$(echo "$response" | tail -1)
           body=$(echo "$response" | head -1)
@@ -268,30 +274,24 @@ jobs:
             exit 1
           fi
 
-          # Εξάγει το order_id για το payment step
-          ORDER_ID=$(echo "$body" | grep -o '"order_id":"[^"]*"' | cut -d'"' -f4)
+          ORDER_ID=$(echo "$body" | python3 -c "import sys, json; print(json.load(sys.stdin).get('order_id', ''))")
           STATUS=$(echo "$body" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
 
           if [ -z "$ORDER_ID" ]; then
-            echo "Could not extract order_id from: $body"
-            ORDER_ID="66279068-c4c5-4545-ae30-8a5bfe9e72d3"
+            echo "Could not extract order_id from response!"
+            exit 1
           fi
-
-          echo "Order created — ID: $ORDER_ID, Status: $STATUS"
-
-          # Επαληθεύει ότι το status είναι "pending"
-          if [ "$STATUS" != "pending" ]; then
-            echo "Expected status 'pending', got '$STATUS'"
-          fi
-
+  
+          echo "Order created — ID: $ORDER_ID"
           echo "ORDER_ID=$ORDER_ID" >> $GITHUB_ENV
+          echo "CART_ID=$CART_ID" >> $GITHUB_ENV
 
       # STEP 5: Payment
       - name: "E2E Step 5/6 — Process Payment"
         run: |
           echo "Processing payment for order $ORDER_ID..."
 
-          response=$(curl -sf -w "\n%{http_code}" \
+          response=$(curl -s -w "\n%{http_code}" \
             -X POST "http://localhost:8080/orders/$CART_ID/pay" \
             -H "Content-Type: application/json" \
             -H "X-API-KEY: abc-123" \
@@ -309,7 +309,7 @@ jobs:
           echo "HTTP Status: $http_code"
 
           if [[ "$http_code" != "200" && "$http_code" != "201" ]]; then
-            echo "Payment failed — expected 200/201, got $http_code"
+            echo "Payment failed with status $http_code"
             exit 1
           fi
 

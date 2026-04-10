@@ -2,7 +2,6 @@ version: "3.9"
 
 # Run: docker compose -f docker-compose.monitoring.yml down
 # Run: docker compose -f docker-compose.monitoring.yml up --build
-# Run: docker compose -f localhost-compose.monitoring.yml restart gateway
 
 #Run Grafana-metrics-test: docker run --rm -v "C:/Users/User/GolandProjects/ecommercePlatform/tests/load-tests:/scripts" --network="host" grafana/k6 run /scripts/performance-script.js
 

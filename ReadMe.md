@@ -115,10 +115,12 @@ This project follows a clean and structured architecture for maintainability and
 │   ├── schema.sql           # Main PostgreSQL schema (Source of Truth)
 │   └── schema-changes.sql   # Migration scripts and history
 ├── images/ 
-├── test/ 
+├── tests/ 
+│   ├── load-tests/
+│   │   └── load_test.go     # Load testing suite using k6 to validate performance under stress
 │   └── e2e_test.go          # E2E test suite simulating real user interactions across the entire platform
-├── test/ 
-│   └── e2e_test.go          # E2E test suite simulating real user interactions
+├── utils/ 
+│   └── util.go              # Utility functions for GetHeader, GenerateCorrelationId, etc.
 ├── config.yaml              # Gateway & Middleware configuration (Routes, Rate Limits)
 ├── docker-compose.yml       # Infrastructure orchestration (Kafka, DBs, ES, Redis)
 ├── gateway.go               # The API Gateway (Reverse Proxy, Circuit Breaker, Auth)
@@ -205,6 +207,8 @@ If you have the infrastructure running via Docker, you can execute the full test
 go test -v ./test/e2e_test.go
 ```
 
+---
+
 ## API Endpoints
 All requests should be directed to the API Gateway at `http://localhost:8080`.
 
@@ -267,11 +271,14 @@ All requests should be directed to the API Gateway at `http://localhost:8080`.
 }
 ```
 
+---
 
 ## Monitoring & Observability
 - **Grafana:** `http://localhost:3000` (Dashboards for Circuit Breaker & Latency)
 - **Prometheus:** `http://localhost:9090` (Raw metrics & Targets)
 - **Elasticsearch Stats:** `http://localhost:9200`
+
+---
 
 # Required Headers
 To successfully interact with the API, the following headers are required (enforced by Gateway middleware):
@@ -294,13 +301,16 @@ To visualize the system's health, I designed a Grafana Dashboard using:
 ![Monitoring](images/Monitoring.png)
 
 ### Load Testing Results (k6)
-We don't guess performance; we measure it. Under a sustained load of **50 RPS**, the system demonstrated:
 
-| Metric | Value | Interpretation |
-| :--- | :--- | :--- |
-| **P95 Latency** | **7.85 ms** | Sub-10ms response time for 95% of users. |
-| **Error Rate** | **1.44%** | Minimal failure rate during high-concurrency DB writes. |
-| **Saturation** | **Resilient** | CPU/Memory usage remained linear without leaks. |
+Before finalizing the configuration, I conducted a comparison to validate the **Rate Limiting** and **System Scalability**. The results demonstrate the impact of correct infrastructure tuning.
+
+| Metric | Baseline (Strict Limit) | Optimized (Current) | Interpretation |
+| :--- | :--- | :--- | :--- |
+| **Config Limit** | 2 RPS / 3 Burst | **200 RPS / 300 Burst** | Increased capacity for high-traffic scenarios. |
+| **Throughput** | 2.1 req/s | **50.1 req/s** | **25x increase** in successfully handled traffic. |
+| **Success Rate** | 3.91% | **98.55%** | Corrected early-stage bottlenecks. |
+| **Error Rate** | 96.08% (429/Too Many) | **1.44%** | Transitioned from throttling to stable processing. |
+| **P95 Latency** | 3.53 ms | **7.85 ms** | Maintained ultra-low latency despite 25x more load. |
 
 ---
 

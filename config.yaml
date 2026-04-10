@@ -15,8 +15,8 @@ services:
       - "rate_limit"
       - "auth_apikey"
       - "metrics"
-    rate_limit_rps: 2
-    rate_limit_burst: 3
+    rate_limit_rps: 200
+    rate_limit_burst: 300
 
   - name: "product-service"
     route_pattern: "/product"
@@ -26,8 +26,8 @@ services:
       - "rate_limit"
       - "auth_apikey"
       - "metrics"
-    rate_limit_rps: 2
-    rate_limit_burst: 3
+    rate_limit_rps: 200
+    rate_limit_burst: 300
 
   - name: "order-service"
     route_pattern: "/order"
@@ -37,5 +37,5 @@ services:
       - "rate_limit"
       - "auth_apikey"
       - "metrics"
-    rate_limit_rps: 2
-    rate_limit_burst: 3
+    rate_limit_rps: 200
+    rate_limit_burst: 300

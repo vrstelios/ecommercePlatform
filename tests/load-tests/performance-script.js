@@ -16,7 +16,7 @@ export const options = {
     },
 };
 
-const BASE_URL = 'http://localhost:8080'; // Το Gateway σου
+const BASE_URL = 'http://localhost:8080'; 
 const PARAMS = {
     headers: {
         'Content-Type': 'application/json',

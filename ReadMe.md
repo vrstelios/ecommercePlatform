@@ -20,7 +20,8 @@ This platform is a showcase of **Cloud-Native patterns** and **Distributed Syste
 ### Design Patterns & Decisions
 * **API Gateway (BFF Pattern):** Centralized entry point implementing cross-cutting concerns (Auth, Rate Limiting, Circuit Breaking).
 * **Eventual Consistency:** Utilizing Apache Kafka to sync PostgreSQL (Write-model) with Elasticsearch (Read-model), achieving sub-second data propagation.
-* **Polyglot Persistence:** * **PostgreSQL:** Transactional integrity for Orders/Payments.
+* **Polyglot Persistence:**
+    * **PostgreSQL:** Transactional integrity for Orders/Payments.
     * **Cassandra:** AP-focused storage for high-availability shopping carts.
     * **Redis:** Ephemeral state and distributed locking.
     * **Elasticsearch:** Full-text search and complex aggregations.
@@ -225,7 +226,10 @@ All requests should be directed to the API Gateway at `http://localhost:8080`.
 
 - **Method:** `GET`
 - **URL:** `http://localhost:8080/product/products/v2?search=Laptop`
+- **Body:**
+```json
 
+```
 
 - **Method:** `POST`
 - **URL:** `http://localhost:8080/api/inventory`
@@ -292,8 +296,8 @@ The API Gateway implements a **Circuit Breaker** pattern to prevent cascading fa
 
 ### Real-time Monitoring (PromQL)
 To visualize the system's health, I designed a Grafana Dashboard using:
-* **Throughput:** `sum(rate(http_requests_total[1m])) by (service)`
-* **Error Rate:** `sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)`
+* **Throughput:** `sum(rate(http_requests_counter[1m])) by (service)`
+* **Error Rate:** `sum(rate(http_requests_counter{status=~"5.."}[5m])) by (service)`
 * **Throttling:** `sum(rate(gateway_rate_limited_total[1m])) by (service, reason)`
 * **Breaker State:** `gateway_circuit_breaker_state` (0: Closed, 1: Open, 2: Half-Open)
 

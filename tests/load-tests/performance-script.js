@@ -2,6 +2,8 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
+// Run Grafana-metrics-test: docker run --rm -v "C:/Users/User/GolandProjects/ecommercePlatform/tests/load-tests:/scripts" --network="host" grafana/k6 run /scripts/performance-script.js
+
 // 1. Config: Set our"Load Profile"
 export const options = {
     stages: [
@@ -16,7 +18,7 @@ export const options = {
     },
 };
 
-const BASE_URL = 'http://localhost:8080'; // Το Gateway σου
+const BASE_URL = 'http://localhost:8080';
 const PARAMS = {
     headers: {
         'Content-Type': 'application/json',
@@ -26,7 +28,7 @@ const PARAMS = {
 
 export default function () {
     const cartId = uuidv4();
-    const productId = "f3dd7a7a-3512-11f1-b700-f6e91b152c83";
+    const productId = "9b33565c-37e3-11f1-a1ed-be6970da855b";
 
     // Step 1: Search Product
     let searchRes = http.get(`${BASE_URL}/product/products/v2?search=Laptop`, PARAMS);

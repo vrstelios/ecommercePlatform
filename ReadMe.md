@@ -116,8 +116,7 @@ This project follows a clean and structured architecture for maintainability and
 │   └── schema-changes.sql   # Migration scripts and history
 ├── images/ 
 ├── tests/ 
-│   ├── load-tests/
-│   │   └── load_test.go     # Load testing suite using k6 to validate performance under stress
+│   ├── load-tests/          # k6 load testing scripts for performance validation
 │   └── e2e_test.go          # E2E test suite simulating real user interactions across the entire platform
 ├── utils/ 
 │   └── util.go              # Utility functions for GetHeader, GenerateCorrelationId, etc.
@@ -300,9 +299,11 @@ To visualize the system's health, I designed a Grafana Dashboard using:
 
 ![Monitoring](images/Monitoring.png)
 
-### Load Testing Results (k6)
+## Rate Limiting & Gateway Protection
 
-Before finalizing the configuration, I conducted a comparison to validate the **Rate Limiting** and **System Scalability**. The results demonstrate the impact of correct infrastructure tuning.
+To prevent system overload, the API Gateway implements a Token Bucket rate limiter.
+
+### Load Testing Results (k6)
 
 | Metric | Baseline (Strict Limit) | Optimized (Current) | Interpretation |
 | :--- | :--- | :--- | :--- |
@@ -311,6 +312,33 @@ Before finalizing the configuration, I conducted a comparison to validate the **
 | **Success Rate** | 3.91% | **98.55%** | Corrected early-stage bottlenecks. |
 | **Error Rate** | 96.08% (429/Too Many) | **1.44%** | Transitioned from throttling to stable processing. |
 | **P95 Latency** | 3.53 ms | **7.85 ms** | Maintained ultra-low latency despite 25x more load. |
+
+---
+
+##  System Load & Scalability Testing
+
+To evaluate real-world performance, I simulated user behavior under concurrent load.
+
+### Scenario Design
+
+#### Browsing Users (Read-Heavy)
+- 60 Virtual Users (VUs)
+- Continuous product searches
+- Backed by **Elasticsearch** and **PostgreSQL**
+
+#### Shopping Flow (Write-Heavy)
+- 30 Virtual Users (VUs)
+- Full user lifecycle:
+  - Search → Add to Cart (**Redis**) → Checkout (**Kafka + Cassandra**)
+
+### Results
+
+| Metric           | Baseline (Initial)     | Optimized (Final Result) | Improvement                     |
+|------------------|----------------------|--------------------------|----------------------------------|
+| Throughput       | 2.1 req/s            | 82.1 req/s               | +3,800%                         |
+| P95 Latency      | 3.53 ms              | 7.85 ms                  | Stable sub-10ms response        |
+| Success Rate     | 3.91%                | 99.89%                   | Critical stability achieved     |
+| Error Rate       | 96.08% (429 Throttled) | 0.11%                  | Minimal noise under load        |
 
 ---
 

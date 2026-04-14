@@ -44,7 +44,7 @@ type Config struct {
 	GRPC struct {
 		Network string `json:"network"`
 		Address string `json:"address"`
-	}
+	} `json:"gRPC"`
 }
 
 // Load Config

@@ -14,10 +14,7 @@ import (
 func main() {
 	cfg, err := config.LoadConfig(config.FilePath)
 	if err != nil {
-		cfg, err = config.LoadConfig("config/config-localHost.json")
-		if err != nil {
-			log.Fatalf("Failed to load config: %v", err)
-		}
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
 	// Connect to Cassandra

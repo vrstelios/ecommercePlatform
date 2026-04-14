@@ -301,12 +301,12 @@ To visualize the system's health, I designed a Grafana Dashboard using:
 
 ### Rate Limiting & Gateway Protection
 
-| Metric           | Baseline (Initial)     | Optimized (Final Result) | Improvement                     |
-|------------------|----------------------|--------------------------|----------------------------------|
-| Throughput       | 2.1 req/s            | 82.1 req/s               | +3,800%                         |
-| P95 Latency      | 3.53 ms              | 7.85 ms                  | Stable sub-10ms response        |
-| Success Rate     | 3.91%                | 99.89%                   | Critical stability achieved     |
-| Error Rate       | 96.08% (429 Throttled) | 0.11%                  | Minimal noise under load        |
+| Metric           | Baseline (Limit-Gateway-2) | Optimized (Middle) | Optimized (Final Result) | Improvement                     |
+|------------------|----------------------------|--------------------|--------------------------|----------------------------------|
+| Throughput       | 2.1 req/s                  | 50.1  req/s        | 82.1 req/s               | +3,800%                         |
+| P95 Latency      | 3.53 ms                    | 7.8 ms             | 7.85 ms                  | Stable sub-10ms response        |
+| Success Rate     | 3.91%                      | 98.5%              | 99.89%                   | Critical stability achieved     |
+| Error Rate       | 96.08% (429 Throttled)     | 1.4%               | 0.11%                  | Minimal noise under load        |
 
 ---
 

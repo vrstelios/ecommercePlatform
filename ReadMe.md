@@ -301,31 +301,37 @@ To visualize the system's health, I designed a Grafana Dashboard using:
 
 ### Rate Limiting & Gateway Protection
 
-| Metric           | Baseline (Limit-Gateway-2) | Optimized (Middle) | Optimized (Final Result) | Improvement                     |
-|------------------|----------------------------|--------------------|--------------------------|----------------------------------|
-| Throughput       | 2.1 req/s                  | 50.1  req/s        | 82.1 req/s               | +3,800%                         |
-| P95 Latency      | 3.53 ms                    | 7.8 ms             | 7.85 ms                  | Stable sub-10ms response        |
-| Success Rate     | 3.91%                      | 98.5%              | 99.89%                   | Critical stability achieved     |
-| Error Rate       | 96.08% (429 Throttled)     | 1.4%               | 0.11%                  | Minimal noise under load        |
+I conducted multi-stage load testing using **k6** to identify the system's breaking point and optimize the Gateway's throughput.
 
+| Metric           | Baseline (Limit-2) | Optimized (Soft) | Optimized (Middle) | Optimized (Heavy/Stress) | Max Improvement |
+|------------------|--------------------|------------------|--------------------|--------------------------|-----------------|
+| **Throughput** | 2.1 req/s          | 50.1 req/s       | 82.1 req/s         | **262.9 req/s** | **+12,400%** |
+| **P95 Latency** | 3.53 ms            | 7.8 ms           | 7.85 ms            | 17.72 ms                 | Sub-20ms stable |
+| **Success Rate** | 3.91%              | 98.6%            | 99.89%             | 95.09%                   | High Resilience |
+| **Error Rate** | 96.08% (429)       | 1.4%             | 0.11%              | 4.91%                    | Under Control   |
 ---
+
+![LastMonitoring](images/FinalMonitoring.png)
+
+> **Analysis of Heavy Load:** At 1,000 concurrent Virtual Users (262 req/s), the system reached its current hardware breakpoint. The 4.9% error rate was primarily due to database connection pool exhaustion in the Cart Service, providing a clear target for horizontal scaling.
 
 ### Full System Load Test
 
 #### Browsing Users (Read-Heavy)
-- 60 Virtual Users (VUs)
-- Continuous product searches
-- Backed by **Elasticsearch** and **PostgreSQL**
+- **Scale:** 60 VUs 
+- **Stack:** Elasticsearch & PostgreSQL
+- **Result:** 100% Success Rate. The search indexing strategy proved highly efficient under concurrent read pressure.
 
 #### Shopping Flow (Write-Heavy)
-- 30 Virtual Users (VUs)
-- Full user lifecycle:
-  - Search → Add to Cart (**Redis**) → Checkout (**Kafka + Cassandra**)
+- **Scale:** Up to 1,000 VUs (Ramping)
+- **Stack:** Redis (Cart) → Kafka & Cassandra (Checkout)
+- **Flow:** Search → Add to Cart → Asynchronous Checkout
+- **Result:** Decoupled architecture via Kafka allowed the Checkout process to maintain ultra-low latency (9ms P95) even when the Cart service was under extreme stress.)
 
 ### Key Takeaways
-* **Elasticsearch & Postgres:** Handled 60 concurrent browsing users with 100% success rate.
-* **Kafka & Cassandra:** Decoupled checkout process ensured zero order loss even during traffic spikes.
-* **Redis:** Managed cart sessions with sub-millisecond latency.
+* **Infrastructure Resilience:** The Go-based API Gateway handled a 124x increase in traffic without significant latency degradation.
+* **Event-Driven Benefits:** Using Kafka for checkouts ensured that order processing remained stable even when upstream services hit their limits.
+* **Redis Performance:** Managed high-concurrency session data with sub-millisecond average latency.
 
 ---
 

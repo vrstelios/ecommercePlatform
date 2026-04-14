@@ -23,9 +23,16 @@ export const options = {
             executor: 'ramping-vus',
             startVUs: 0,
             stages: [
-                { duration: '30s', target: 30 }, // Warm up
+                /*{ duration: '30s', target: 30 }, // Warm up
                 { duration: '1m', target: 30 },  // Steady load
-                { duration: '30s', target: 0 },  // Ramp down
+                { duration: '30s', target: 0 },  // Ramp down*/
+                { duration: '2m', target: 100 },
+                { duration: '2m', target: 200 },
+                { duration: '2m', target: 300 },
+                { duration: '2m', target: 500 },
+                { duration: '2m', target: 700 },
+                { duration: '2m', target: 1000 },
+                { duration: '1m', target: 0 },
             ],
             exec: 'fullShoppingFlow',
         },
@@ -48,10 +55,10 @@ const PARAMS = {
 // SETUP PHASE: Create data before the test
 export function setup() {
     const products = [
-        { id: "56d05d4c-37da-11f1-84d1-c217bbed9607", name: "MacBook-Pro" },
-        { id: "24c25a1d-37db-11f1-83ff-a666abb77868", name: "Keyboard" },
-        { id: "83e88e52-37da-11f1-84d1-c217bbed9607", name: "Monitor" },
-        { id: "94e0d429-37da-11f1-84d1-c217bbed9607", name: "Mouse" }
+        { id: "46f6ebaa-380d-11f1-9da1-529b61f99ef3", name: "MacBook-Pro" },
+        { id: "3244b1a0-380d-11f1-9da1-529b61f99ef3", name: "Keyboard" },
+        { id: "19a9bd1b-380d-11f1-9da1-529b61f99ef3", name: "Monitor" },
+        { id: "03f33338-380d-11f1-9da1-529b61f99ef3", name: "Mouse" }
     ];
 
     console.log("Running test with pre-seeded products and inventory...");
@@ -75,7 +82,7 @@ export function fullShoppingFlow(data) {
 
     // Βήμα 1: Search
     http.get(`${BASE_URL}/product/products/v2?search=${product.name}`, PARAMS);
-    sleep(1);
+    sleep(Math.random() * 3 + 1);
 
     // Βήμα 2: Add to Cart
     const cartStart = new Date();

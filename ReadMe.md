@@ -17,6 +17,8 @@ utilizing a modern tech stack and cloud-native patterns.
 
 This platform is a showcase of **Cloud-Native patterns** and **Distributed Systems** principles. It moves beyond simple CRUD operations, implementing a polyglot persistence strategy and event-driven synchronization.
 
+![EcommercePlatform](images/EcommercePlatform.png)
+
 ### Design Patterns & Decisions
 * **API Gateway (BFF Pattern):** Centralized entry point implementing cross-cutting concerns (Auth, Rate Limiting, Circuit Breaking).
 * **Eventual Consistency:** Utilizing Apache Kafka to sync PostgreSQL (Write-model) with Elasticsearch (Read-model), achieving sub-second data propagation.
@@ -25,6 +27,55 @@ This platform is a showcase of **Cloud-Native patterns** and **Distributed Syste
     * **Cassandra:** AP-focused storage for high-availability shopping carts.
     * **Redis:** Ephemeral state and distributed locking.
     * **Elasticsearch:** Full-text search and complex aggregations.
+
+---
+
+# Resilience & Fault Tolerance: Circuit Breaker in Action
+
+The API Gateway implements a **Circuit Breaker** pattern to prevent cascading failures. This ensures that if one service (e.g., Elasticsearch) fails, the rest of the platform remains operational.
+
+### Real-time Monitoring (PromQL)
+To visualize the system's health, I designed a Grafana Dashboard using:
+* **Throughput:** `sum(rate(http_requests_counter[1m])) by (service)`
+* **Error Rate:** `sum(rate(http_requests_counter{status=~"5.."}[5m])) by (service)`
+* **Throttling:** `sum(rate(gateway_rate_limited_total[1m])) by (service, reason)`
+* **Breaker State:** `gateway_circuit_breaker_state` (0: Closed, 1: Open, 2: Half-Open)
+
+![Monitoring](images/Monitoring.png)
+
+### Rate Limiting & Gateway Protection
+
+I conducted multi-stage load testing using **k6** to identify the system's breaking point and optimize the Gateway's throughput.
+
+| Metric           | Baseline (Limit-2) | Optimized (Soft) | Optimized (Middle) | Optimized (Heavy/Stress) | Max Improvement |
+|------------------|--------------------|------------------|--------------------|--------------------------|-----------------|
+| **Throughput** | 2.1 req/s          | 50.1 req/s       | 82.1 req/s         | **262.9 req/s** | **+12,400%** |
+| **P95 Latency** | 3.53 ms            | 7.8 ms           | 7.85 ms            | 17.72 ms                 | Sub-20ms stable |
+| **Success Rate** | 3.91%              | 98.6%            | 99.89%             | 95.09%                   | High Resilience |
+| **Error Rate** | 96.08% (429)       | 1.4%             | 0.11%              | 4.91%                    | Under Control   |
+---
+
+![LastMonitoring](images/FinalMonitoring.png)
+
+> **Analysis of Heavy Load:** At 1,000 concurrent Virtual Users (262 req/s), the system reached its current hardware breakpoint. The 4.9% error rate was primarily due to database connection pool exhaustion in the Cart Service, providing a clear target for horizontal scaling.
+
+### Full System Load Test
+
+#### Browsing Users (Read-Heavy)
+- **Scale:** 60 VUs 
+- **Stack:** Elasticsearch & PostgreSQL
+- **Result:** 100% Success Rate. The search indexing strategy proved highly efficient under concurrent read pressure.
+
+#### Shopping Flow (Write-Heavy)
+- **Scale:** Up to 1,000 VUs (Ramping)
+- **Stack:** Redis (Cart) → Kafka & Cassandra (Checkout)
+- **Flow:** Search → Add to Cart → Asynchronous Checkout
+- **Result:** Decoupled architecture via Kafka allowed the Checkout process to maintain ultra-low latency (9ms P95) even when the Cart service was under extreme stress.)
+
+### Key Takeaways
+* **Infrastructure Resilience:** The Go-based API Gateway handled a 124x increase in traffic without significant latency degradation.
+* **Event-Driven Benefits:** Using Kafka for checkouts ensured that order processing remained stable even when upstream services hit their limits.
+* **Redis Performance:** Managed high-concurrency session data with sub-millisecond average latency.
 
 ---
 
@@ -81,8 +132,6 @@ We have implemented a comprehensive E2E suite (`test/e2e_test.go`) that simulate
 ---
 
 ## Architecture
-
-![EcommercePlatform](images/EcommercePlatform.png)
 
 This project follows a clean and structured architecture for maintainability and scalability.
 ```
@@ -290,54 +339,6 @@ To successfully interact with the API, the following headers are required (enfor
 
 ---
 
-# Resilience & Fault Tolerance: Circuit Breaker in Action
-
-The API Gateway implements a **Circuit Breaker** pattern to prevent cascading failures. This ensures that if one service (e.g., Elasticsearch) fails, the rest of the platform remains operational.
-
-### Real-time Monitoring (PromQL)
-To visualize the system's health, I designed a Grafana Dashboard using:
-* **Throughput:** `sum(rate(http_requests_counter[1m])) by (service)`
-* **Error Rate:** `sum(rate(http_requests_counter{status=~"5.."}[5m])) by (service)`
-* **Throttling:** `sum(rate(gateway_rate_limited_total[1m])) by (service, reason)`
-* **Breaker State:** `gateway_circuit_breaker_state` (0: Closed, 1: Open, 2: Half-Open)
-
-![Monitoring](images/Monitoring.png)
-
-### Rate Limiting & Gateway Protection
-
-I conducted multi-stage load testing using **k6** to identify the system's breaking point and optimize the Gateway's throughput.
-
-| Metric           | Baseline (Limit-2) | Optimized (Soft) | Optimized (Middle) | Optimized (Heavy/Stress) | Max Improvement |
-|------------------|--------------------|------------------|--------------------|--------------------------|-----------------|
-| **Throughput** | 2.1 req/s          | 50.1 req/s       | 82.1 req/s         | **262.9 req/s** | **+12,400%** |
-| **P95 Latency** | 3.53 ms            | 7.8 ms           | 7.85 ms            | 17.72 ms                 | Sub-20ms stable |
-| **Success Rate** | 3.91%              | 98.6%            | 99.89%             | 95.09%                   | High Resilience |
-| **Error Rate** | 96.08% (429)       | 1.4%             | 0.11%              | 4.91%                    | Under Control   |
----
-
-![LastMonitoring](images/FinalMonitoring.png)
-
-> **Analysis of Heavy Load:** At 1,000 concurrent Virtual Users (262 req/s), the system reached its current hardware breakpoint. The 4.9% error rate was primarily due to database connection pool exhaustion in the Cart Service, providing a clear target for horizontal scaling.
-
-### Full System Load Test
-
-#### Browsing Users (Read-Heavy)
-- **Scale:** 60 VUs 
-- **Stack:** Elasticsearch & PostgreSQL
-- **Result:** 100% Success Rate. The search indexing strategy proved highly efficient under concurrent read pressure.
-
-#### Shopping Flow (Write-Heavy)
-- **Scale:** Up to 1,000 VUs (Ramping)
-- **Stack:** Redis (Cart) → Kafka & Cassandra (Checkout)
-- **Flow:** Search → Add to Cart → Asynchronous Checkout
-- **Result:** Decoupled architecture via Kafka allowed the Checkout process to maintain ultra-low latency (9ms P95) even when the Cart service was under extreme stress.)
-
-### Key Takeaways
-* **Infrastructure Resilience:** The Go-based API Gateway handled a 124x increase in traffic without significant latency degradation.
-* **Event-Driven Benefits:** Using Kafka for checkouts ensured that order processing remained stable even when upstream services hit their limits.
-* **Redis Performance:** Managed high-concurrency session data with sub-millisecond average latency.
-
----
 
 ### Contributing
 - Fork the repo

@@ -299,27 +299,18 @@ To visualize the system's health, I designed a Grafana Dashboard using:
 
 ![Monitoring](images/Monitoring.png)
 
-## Rate Limiting & Gateway Protection
+### Rate Limiting & Gateway Protection
 
-To prevent system overload, the API Gateway implements a Token Bucket rate limiter.
-
-### Load Testing Results (k6)
-
-| Metric | Baseline (Strict Limit) | Optimized (Current) | Interpretation |
-| :--- | :--- | :--- | :--- |
-| **Config Limit** | 2 RPS / 3 Burst | **200 RPS / 300 Burst** | Increased capacity for high-traffic scenarios. |
-| **Throughput** | 2.1 req/s | **50.1 req/s** | **25x increase** in successfully handled traffic. |
-| **Success Rate** | 3.91% | **98.55%** | Corrected early-stage bottlenecks. |
-| **Error Rate** | 96.08% (429/Too Many) | **1.44%** | Transitioned from throttling to stable processing. |
-| **P95 Latency** | 3.53 ms | **7.85 ms** | Maintained ultra-low latency despite 25x more load. |
+| Metric           | Baseline (Initial)     | Optimized (Final Result) | Improvement                     |
+|------------------|----------------------|--------------------------|----------------------------------|
+| Throughput       | 2.1 req/s            | 82.1 req/s               | +3,800%                         |
+| P95 Latency      | 3.53 ms              | 7.85 ms                  | Stable sub-10ms response        |
+| Success Rate     | 3.91%                | 99.89%                   | Critical stability achieved     |
+| Error Rate       | 96.08% (429 Throttled) | 0.11%                  | Minimal noise under load        |
 
 ---
 
-##  System Load & Scalability Testing
-
-To evaluate real-world performance, I simulated user behavior under concurrent load.
-
-### Scenario Design
+### Full System Load Test
 
 #### Browsing Users (Read-Heavy)
 - 60 Virtual Users (VUs)
@@ -331,14 +322,10 @@ To evaluate real-world performance, I simulated user behavior under concurrent l
 - Full user lifecycle:
   - Search → Add to Cart (**Redis**) → Checkout (**Kafka + Cassandra**)
 
-### Results
-
-| Metric           | Baseline (Initial)     | Optimized (Final Result) | Improvement                     |
-|------------------|----------------------|--------------------------|----------------------------------|
-| Throughput       | 2.1 req/s            | 82.1 req/s               | +3,800%                         |
-| P95 Latency      | 3.53 ms              | 7.85 ms                  | Stable sub-10ms response        |
-| Success Rate     | 3.91%                | 99.89%                   | Critical stability achieved     |
-| Error Rate       | 96.08% (429 Throttled) | 0.11%                  | Minimal noise under load        |
+### Key Takeaways
+* **Elasticsearch & Postgres:** Handled 60 concurrent browsing users with 100% success rate.
+* **Kafka & Cassandra:** Decoupled checkout process ensured zero order loss even during traffic spikes.
+* **Redis:** Managed cart sessions with sub-millisecond latency.
 
 ---
 

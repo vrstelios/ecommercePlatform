@@ -30,104 +30,23 @@ This platform is a showcase of **Cloud-Native patterns** and **Distributed Syste
 
 ---
 
-# Resilience & Fault Tolerance: Circuit Breaker in Action
-
-The API Gateway implements a **Circuit Breaker** pattern to prevent cascading failures. This ensures that if one service (e.g., Elasticsearch) fails, the rest of the platform remains operational.
-
-### Real-time Monitoring (PromQL)
-To visualize the system's health, I designed a Grafana Dashboard using:
-* **Throughput:** `sum(rate(http_requests_counter[1m])) by (service)`
-* **Error Rate:** `sum(rate(http_requests_counter{status=~"5.."}[5m])) by (service)`
-* **Throttling:** `sum(rate(gateway_rate_limited_total[1m])) by (service, reason)`
-* **Breaker State:** `gateway_circuit_breaker_state` (0: Closed, 1: Open, 2: Half-Open)
-
-![Monitoring](images/Monitoring.png)
-
-### Rate Limiting & Gateway Protection
-
-I conducted multi-stage load testing using **k6** to identify the system's breaking point and optimize the Gateway's throughput.
-
-| Metric           | Baseline (Limit-2) | Optimized (Soft) | Optimized (Middle) | Optimized (Heavy/Stress) | Max Improvement |
-|------------------|--------------------|------------------|--------------------|--------------------------|-----------------|
-| **Throughput** | 2.1 req/s          | 50.1 req/s       | 82.1 req/s         | **262.9 req/s** | **+12,400%** |
-| **P95 Latency** | 3.53 ms            | 7.8 ms           | 7.85 ms            | 17.72 ms                 | Sub-20ms stable |
-| **Success Rate** | 3.91%              | 98.6%            | 99.89%             | 95.09%                   | High Resilience |
-| **Error Rate** | 96.08% (429)       | 1.4%             | 0.11%              | 4.91%                    | Under Control   |
----
-
-![LastMonitoring](images/FinalMonitoring.png)
-
-> **Analysis of Heavy Load:** At 1,000 concurrent Virtual Users (262 req/s), the system reached its current hardware breakpoint. The 4.9% error rate was primarily due to database connection pool exhaustion in the Cart Service, providing a clear target for horizontal scaling.
-
-### Full System Load Test
-
-#### Browsing Users (Read-Heavy)
-- **Scale:** 60 VUs 
-- **Stack:** Elasticsearch & PostgreSQL
-- **Result:** 100% Success Rate. The search indexing strategy proved highly efficient under concurrent read pressure.
-
-#### Shopping Flow (Write-Heavy)
-- **Scale:** Up to 1,000 VUs (Ramping)
-- **Stack:** Redis (Cart) → Kafka & Cassandra (Checkout)
-- **Flow:** Search → Add to Cart → Asynchronous Checkout
-- **Result:** Decoupled architecture via Kafka allowed the Checkout process to maintain ultra-low latency (9ms P95) even when the Cart service was under extreme stress.)
-
-### Key Takeaways
-* **Infrastructure Resilience:** The Go-based API Gateway handled a 124x increase in traffic without significant latency degradation.
-* **Event-Driven Benefits:** Using Kafka for checkouts ensured that order processing remained stable even when upstream services hit their limits.
-* **Redis Performance:** Managed high-concurrency session data with sub-millisecond average latency.
-
----
-
-## Features
-
-### Core Functionality
-- **Dynamic Product Catalog** - Real-time search and filtering powered by Elasticsearch (supporting fuzzy search and high-speed indexing).
-- **High-Availability Shopping Cart** - Managed via Redis for sub-millisecond latency and backed by Apache Cassandra for persistent, distributed storage.
-- **Event-Driven Order Management** - Fully decoupled order processing using Apache Kafka to handle high-concurrency payment and checkout flows.
-- **Automated Inventory Sync** - Real-time stock updates across multiple databases (PostgreSQL, Cassandra, ES) using an asynchronous worker pattern.
-
-### Technical Features
-#### Distributed System Architecture
-- **Microservices Decoupling** - Independent services communicating via RESTful APIs and Asynchronous Message Passing (Event-Driven Architecture).
-- **Event Sourcing with Kafka** - Real-time synchronization between PostgreSQL (Source of Truth) and Elasticsearch (Search Engine) to ensure data consistency without tight coupling.
-- **Database Per Service Pattern** - Optimized storage strategy using Polyglot Persistence (PostgreSQL for ACID transactions, Cassandra for high-write availability, and Redis for low-latency caching).
-
-#### Advanced API Gateway Patterns
-- **Resilience Engineering** - Implementation of the Circuit Breaker pattern to prevent cascading failures when downstream services are unhealthy.
-- **Traffic Management** - Token Bucket Rate Limiting to protect against API abuse and ensure fair resource distribution.
-- **Dynamic Routing** - Centralized entry point for all internal services with automated request forwarding and error handling.
-
-#### Observability & Tracing
-- **Distributed Request Tracing** - End-to-end monitoring using Correlation IDs that propagate from the Gateway through Kafka Workers to the final database write.
-- **Structured Logging** - High-performance, leveled logging with Zap for efficient log parsing and debugging.
-- **Real-time Metrics Pipeline** - Custom Prometheus exporters visualizing system health, HTTP latencies, and circuit breaker states on Grafana Dashboards.
-
-#### DevOps & Infrastructure
-- **Containerization** - Fully dockerized environment with Docker Compose for easy local development and environment parity.
-- **Health Checks & Self-Healing** - Automated service discovery and container restart policies for high uptime.
-- **Infrastructure Spin-up:** Automated deployment of 7+ containers (Postgres, Kafka, Zookeeper, Redis, Cassandra, ES).
-- **Health Verification:** Smart wait-scripts ensure all databases are ready before tests start.
-- **Schema Auto-Migration:** Automated SQL injection for both Relational and NoSQL databases.
-- **Race Detection:** Tests are executed to catch concurrency issues in the Go microservices.
-
-### Advanced Features
-- **gRPC Integration** - Internal communication between Gateway and Product Service is optimized using gRPC, reducing latency and payload size by up to 80% compared to JSON.
-- **Resilient Proxying** - The Gateway wraps gRPC calls with a Circuit Breaker. If the gRPC backend fails, the Gateway automatically trips to Open state to prevent cascading failures.
-- **Contract-First Development** - Shared .proto files ensure that the Gateway and Microservices are always in sync regarding data structures.
-
-#### Continuous Integration & Quality Assurance
-- **Automated CI Pipeline** - GitHub Actions workflow that triggers on every push/PR to validate code integrity via `go build` and `go test`.
-- **Dependency Tracking** - Automated `go.sum` validation ensuring secure and reproducible builds across different environments.
-
-### End-to-End (E2E) Testing
-We have implemented a comprehensive E2E suite (`test/e2e_test.go`) that simulates a complete user journey:
-1. **Product Creation:** Verifies gRPC/REST connectivity.
-2. **Inventory Management:** Sets stock levels in PostgreSQL.
-3. **Cart Operations:** Persists data in Redis/Cassandra.
-4. **Order Lifecycle:** Creates a 'pending' order.
-5. **Asynchronous Payment:** Processes payment via Kafka event-streaming.
-6. **Data Consistency:** Verifies inventory decrement and Elasticsearch synchronization.
+## Technology Stack
+- **Language:** Go (1.24+)
+- **Framework:** Gin Web Framework
+- **Zap Logger:** High-performance, structured logging for enterprise-grade observability.
+- **Database:** PostgreQL-based relational DB
+- **Apache Cassandra:** Distributed NoSQL database for the shopping cart, optimized for high-write availability.
+- **Redis:** In-memory data store for sub-millisecond session management and order caching.
+- **Elasticsearch:** Distributed search engine providing fuzzy search and real-time product discovery.
+- **Apache Kafka:** Distributed event streaming platform used for asynchronous communication and database synchronization.
+- **Prometheus:** Systems monitoring and alerting toolkit for collecting real-time metrics.
+- **Grafana:** Visualization platform for monitoring service health, Circuit Breaker states, and traffic patterns.
+- **Distributed Tracing:** Custom implementation using Correlation Ids across HTTP headers and Kafka metadata.
+- **Docker & Docker Compose:** Containerization for environment parity and simplified local orchestration.
+- **API Gateway:** Custom-built gateway featuring Rate Limiting (Token Bucket) and Circuit Breaker patterns.
+- **Communication:** gRPC with Protocol Buffers (Internal East-West traffic).
+- **Protocols:** HTTP/2 for inter-service communication, JSON/REST for Client-Gateway.
+- **Schema:** Protobuf definitions for strict service contracts.
 
 ---
 
@@ -188,23 +107,55 @@ This project follows a clean and structured architecture for maintainability and
 
 ---
 
-## Technology Stack
-- **Language:** Go (1.24+)
-- **Framework:** Gin Web Framework
-- **Zap Logger:** High-performance, structured logging for enterprise-grade observability.
-- **Database:** PostgreQL-based relational DB
-- **Apache Cassandra:** Distributed NoSQL database for the shopping cart, optimized for high-write availability.
-- **Redis:** In-memory data store for sub-millisecond session management and order caching.
-- **Elasticsearch:** Distributed search engine providing fuzzy search and real-time product discovery.
-- **Apache Kafka:** Distributed event streaming platform used for asynchronous communication and database synchronization.
-- **Prometheus:** Systems monitoring and alerting toolkit for collecting real-time metrics.
-- **Grafana:** Visualization platform for monitoring service health, Circuit Breaker states, and traffic patterns.
-- **Distributed Tracing:** Custom implementation using Correlation Ids across HTTP headers and Kafka metadata.
-- **Docker & Docker Compose:** Containerization for environment parity and simplified local orchestration.
-- **API Gateway:** Custom-built gateway featuring Rate Limiting (Token Bucket) and Circuit Breaker patterns.
-- **Communication:** gRPC with Protocol Buffers (Internal East-West traffic).
-- **Protocols:** HTTP/2 for inter-service communication, JSON/REST for Client-Gateway.
-- **Schema:** Protobuf definitions for strict service contracts.
+## Features
+
+### Core Functionality
+- **Dynamic Product Catalog** - Real-time search and filtering powered by Elasticsearch (supporting fuzzy search and high-speed indexing).
+- **High-Availability Shopping Cart** - Managed via Redis for sub-millisecond latency and backed by Apache Cassandra for persistent, distributed storage.
+- **Event-Driven Order Management** - Fully decoupled order processing using Apache Kafka to handle high-concurrency payment and checkout flows.
+- **Automated Inventory Sync** - Real-time stock updates across multiple databases (PostgreSQL, Cassandra, ES) using an asynchronous worker pattern.
+
+### Technical Features
+#### Distributed System Architecture
+- **Microservices Decoupling** - Independent services communicating via RESTful APIs and Asynchronous Message Passing (Event-Driven Architecture).
+- **Event Sourcing with Kafka** - Real-time synchronization between PostgreSQL (Source of Truth) and Elasticsearch (Search Engine) to ensure data consistency without tight coupling.
+- **Database Per Service Pattern** - Optimized storage strategy using Polyglot Persistence (PostgreSQL for ACID transactions, Cassandra for high-write availability, and Redis for low-latency caching).
+
+#### Advanced API Gateway Patterns
+- **Resilience Engineering** - Implementation of the Circuit Breaker pattern to prevent cascading failures when downstream services are unhealthy.
+- **Traffic Management** - Token Bucket Rate Limiting to protect against API abuse and ensure fair resource distribution.
+- **Dynamic Routing** - Centralized entry point for all internal services with automated request forwarding and error handling.
+
+#### Observability & Tracing
+- **Distributed Request Tracing** - End-to-end monitoring using Correlation IDs that propagate from the Gateway through Kafka Workers to the final database write.
+- **Structured Logging** - High-performance, leveled logging with Zap for efficient log parsing and debugging.
+- **Real-time Metrics Pipeline** - Custom Prometheus exporters visualizing system health, HTTP latencies, and circuit breaker states on Grafana Dashboards.
+
+#### DevOps & Infrastructure
+- **Containerization** - Fully dockerized environment with Docker Compose for easy local development and environment parity.
+- **Health Checks & Self-Healing** - Automated service discovery and container restart policies for high uptime.
+- **Infrastructure Spin-up:** Automated deployment of 7+ containers (Postgres, Kafka, Zookeeper, Redis, Cassandra, ES).
+- **Health Verification:** Smart wait-scripts ensure all databases are ready before tests start.
+- **Schema Auto-Migration:** Automated SQL injection for both Relational and NoSQL databases.
+- **Race Detection:** Tests are executed to catch concurrency issues in the Go microservices.
+
+### Advanced Features
+- **gRPC Integration** - Internal communication between Gateway and Product Service is optimized using gRPC, reducing latency and payload size by up to 80% compared to JSON.
+- **Resilient Proxying** - The Gateway wraps gRPC calls with a Circuit Breaker. If the gRPC backend fails, the Gateway automatically trips to Open state to prevent cascading failures.
+- **Contract-First Development** - Shared .proto files ensure that the Gateway and Microservices are always in sync regarding data structures.
+
+#### Continuous Integration & Quality Assurance
+- **Automated CI Pipeline** - GitHub Actions workflow that triggers on every push/PR to validate code integrity via `go build` and `go test`.
+- **Dependency Tracking** - Automated `go.sum` validation ensuring secure and reproducible builds across different environments.
+
+### End-to-End (E2E) Testing
+We have implemented a comprehensive E2E suite (`test/e2e_test.go`) that simulates a complete user journey:
+1. **Product Creation:** Verifies gRPC/REST connectivity.
+2. **Inventory Management:** Sets stock levels in PostgreSQL.
+3. **Cart Operations:** Persists data in Redis/Cassandra.
+4. **Order Lifecycle:** Creates a 'pending' order.
+5. **Asynchronous Payment:** Processes payment via Kafka event-streaming.
+6. **Data Consistency:** Verifies inventory decrement and Elasticsearch synchronization.
 
 ---
 
@@ -325,6 +276,55 @@ All requests should be directed to the API Gateway at `http://localhost:8080`.
 
 ---
 
+# Resilience & Fault Tolerance: Circuit Breaker in Action
+
+The API Gateway implements a **Circuit Breaker** pattern to prevent cascading failures. This ensures that if one service (e.g., Elasticsearch) fails, the rest of the platform remains operational.
+
+### Real-time Monitoring (PromQL)
+To visualize the system's health, I designed a Grafana Dashboard using:
+* **Throughput:** `sum(rate(http_requests_counter[1m])) by (service)`
+* **Error Rate:** `sum(rate(http_requests_counter{status=~"5.."}[5m])) by (service)`
+* **Throttling:** `sum(rate(gateway_rate_limited_total[1m])) by (service, reason)`
+* **Breaker State:** `gateway_circuit_breaker_state` (0: Closed, 1: Open, 2: Half-Open)
+
+![Monitoring](images/Monitoring.png)
+
+### Rate Limiting & Gateway Protection
+
+I conducted multi-stage load testing using **k6** to identify the system's breaking point and optimize the Gateway's throughput.
+
+| Metric           | Baseline (Limit-2) | Optimized (Soft) | Optimized (Middle) | Optimized (Heavy/Stress) | Max Improvement |
+|------------------|--------------------|------------------|--------------------|--------------------------|-----------------|
+| **Throughput** | 2.1 req/s          | 50.1 req/s       | 82.1 req/s         | **262.9 req/s** | **+12,400%** |
+| **P95 Latency** | 3.53 ms            | 7.8 ms           | 7.85 ms            | 17.72 ms                 | Sub-20ms stable |
+| **Success Rate** | 3.91%              | 98.6%            | 99.89%             | 95.09%                   | High Resilience |
+| **Error Rate** | 96.08% (429)       | 1.4%             | 0.11%              | 4.91%                    | Under Control   |
+---
+
+![LastMonitoring](images/FinalMonitoring.png)
+
+> **Analysis of Heavy Load:** At 1,000 concurrent Virtual Users (262 req/s), the system reached its current hardware breakpoint. The 4.9% error rate was primarily due to database connection pool exhaustion in the Cart Service, providing a clear target for horizontal scaling.
+
+### Full System Load Test
+
+#### Browsing Users (Read-Heavy)
+- **Scale:** 60 VUs 
+- **Stack:** Elasticsearch & PostgreSQL
+- **Result:** 100% Success Rate. The search indexing strategy proved highly efficient under concurrent read pressure.
+
+#### Shopping Flow (Write-Heavy)
+- **Scale:** Up to 1,000 VUs (Ramping)
+- **Stack:** Redis (Cart) → Kafka & Cassandra (Checkout)
+- **Flow:** Search → Add to Cart → Asynchronous Checkout
+- **Result:** Decoupled architecture via Kafka allowed the Checkout process to maintain ultra-low latency (9ms P95) even when the Cart service was under extreme stress.)
+
+### Key Takeaways
+* **Infrastructure Resilience:** The Go-based API Gateway handled a 124x increase in traffic without significant latency degradation.
+* **Event-Driven Benefits:** Using Kafka for checkouts ensured that order processing remained stable even when upstream services hit their limits.
+* **Redis Performance:** Managed high-concurrency session data with sub-millisecond average latency.
+
+---
+
 ## Monitoring & Observability
 - **Grafana:** `http://localhost:3000` (Dashboards for Circuit Breaker & Latency)
 - **Prometheus:** `http://localhost:9090` (Raw metrics & Targets)
@@ -338,7 +338,6 @@ To successfully interact with the API, the following headers are required (enfor
 - X-Correlation-Id: (Optional) Provide a custom Id to trace your request across microservices. If omitted, the Gateway will generate one automatically.
 
 ---
-
 
 ### Contributing
 - Fork the repo
